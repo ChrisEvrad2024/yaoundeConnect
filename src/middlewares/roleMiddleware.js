@@ -1,5 +1,3 @@
-// src/middlewares/roleMiddleware.js
-
 const roleMiddleware = (requiredRoles) => {
     // Normaliser en tableau si c'est une chaîne
     const roles = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];

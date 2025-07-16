@@ -45,8 +45,8 @@ module.exports = (sequelize) => {
                 allowNull: false
             },
             status: {
-                type: DataTypes.INTEGER,
-                defaultValue: 1
+                type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+                defaultValue: 'pending'
             },
             is_booking: {
                 type: DataTypes.INTEGER,

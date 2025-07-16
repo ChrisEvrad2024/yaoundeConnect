@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({debug: true});
 
 // Import des middlewares personnalisés
 const errorHandler = require('./middlewares/errorHandler');
@@ -53,7 +53,7 @@ app.get('/health', (req, res) => {
 // Routes API
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/poi', require('./routes/poi'));
-
+app.use('/api/moderation', require('./routes/approval'));
 // Route 404 - VERSION CORRIGÉE
 app.all('*', (req, res) => {
     res.status(404).json({

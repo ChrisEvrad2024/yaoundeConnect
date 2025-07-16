@@ -1,5 +1,6 @@
 const POIService = require('../services/poiService');
 const { upload } = require('../config/upload');
+const notificationService = require('../services/notificationService');
 
 class POIController {
 
@@ -13,9 +14,23 @@ class POIController {
             // Créer le POI
             const poi = await POIService.createPOI(poiData, userId, imageFiles);
 
+            // Envoyer la réponse HTTP IMMÉDIATEMENT
             res.status(201).json({
                 message: 'Point d\'intérêt créé avec succès',
                 data: poi
+            });
+
+            // Envoyer les notifications APRÈS la réponse (asynchrone)
+            // Cela évite que l'utilisateur attende la notification
+            setImmediate(async () => {
+                try {
+                    const notificationService = require('../services/notificationService');
+                    await notificationService.notifyPOICreated(poi);
+                    console.log(`✅ Notifications envoyées pour POI ${poi.id}`);
+                } catch (notificationError) {
+                    console.error('❌ Erreur notification création POI:', notificationError);
+                    // En cas d'erreur, on peut logger mais pas faire échouer la création
+                }
             });
 
         } catch (error) {
