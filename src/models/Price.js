@@ -1,32 +1,22 @@
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
-    const Country = sequelize.define('Country', {
+    const Price = sequelize.define('Price', {
         id: {
             type: DataTypes.BIGINT.UNSIGNED,
             primaryKey: true,
             autoIncrement: true
         },
-        code: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            unique: true
-        },
-        name: {
-            type: DataTypes.STRING(255),
-            allowNull: false,
-            unique: true
-        },
-        continent_name: {
+        price_name: {
             type: DataTypes.STRING(255),
             allowNull: false
         },
-        flag: {
-            type: DataTypes.STRING(255),
+        amount: {
+            type: DataTypes.DOUBLE(8, 2),
             allowNull: false
         },
         langue: {
-            type: DataTypes.STRING(250),
+            type: DataTypes.STRING(45),
             defaultValue: 'fr'
         },
         is_translate: {
@@ -36,17 +26,25 @@ module.exports = (sequelize) => {
         translate_id: {
             type: DataTypes.BIGINT.UNSIGNED,
             allowNull: true
+        },
+        pointinteret_id: {
+            type: DataTypes.BIGINT.UNSIGNED,
+            allowNull: false,
+            references: {
+                model: 'point_interests',
+                key: 'id'
+            }
         }
     }, {
-        tableName: 'countries',
+        tableName: 'prices',
         timestamps: true,
         createdAt: 'created_at',
         updatedAt: 'updated_at'
     });
 
-    Country.associate = (models) => {
-        Country.hasMany(models.Town, { foreignKey: 'country_id' });
+    Price.associate = (models) => {
+        Price.belongsTo(models.PointInterest, { foreignKey: 'pointinteret_id' });
     };
 
-    return Country;
+    return Price;
 };

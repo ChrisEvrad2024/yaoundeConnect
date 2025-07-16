@@ -13,6 +13,6 @@ module.exports = {
   rules: {
     'prettier/prettier': 'error',
     'no-unused-vars': 'warn',
-    'no-console': 'warn'
+    'no-console': 'off'  // Changé de warn à off pour le développement
   }
 };

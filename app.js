@@ -13,10 +13,10 @@ const app = express();
 // Middlewares de sécurité
 app.use(helmet());
 app.use(
-    cors({
-        origin: process.env.CLIENT_URL || 'http://localhost:3000',
-        credentials: true
-    })
+  cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    credentials: true
+  })
 );
 
 // Middlewares de base
@@ -28,40 +28,44 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes de base
+
+app.get('/health', (req, res) => {
+  // Cette route renvoie simplement un statut 200 OK pour indiquer que l'API est en vie.
+  res.status(200).json({ status: 'ok', message: 'API is healthy' });
+});
+
 app.get('/', (req, res) => {
-    res.json({
-        message: 'API yaoundeConnect',
-        version: '1.0.0',
-        status: 'active',
-        endpoints: {
-            auth: '/api/auth',
-            poi: '/api/poi',
-            documentation: '/api/docs'
-        }
-    });
+  res.json({
+    message: 'API yaoundeConnect',
+    version: '1.0.0',
+    status: 'active',
+    endpoints: {
+      auth: '/api/auth',
+      documentation: '/api/docs'
+    }
+  });
 });
 
 // Health check
 app.get('/health', (req, res) => {
-    res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-    });
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // Routes API
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/poi', require('./routes/poi'));
 
 // Route 404
 app.use('*', (req, res) => {
-    res.status(404).json({
-        type: 'https://httpstatuses.com/404',
-        title: 'Route non trouvée',
-        status: 404,
-        detail: `La route ${req.method} ${req.originalUrl} n'existe pas`
-    });
+  res.status(404).json({
+    type: 'https://httpstatuses.com/404',
+    title: 'Route non trouvée',
+    status: 404,
+    detail: `La route ${req.method} ${req.originalUrl} n'existe pas`
+  });
 });
 
 // Middleware de gestion d'erreurs
