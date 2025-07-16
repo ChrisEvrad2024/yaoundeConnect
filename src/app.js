@@ -54,8 +54,8 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/poi', require('./routes/poi'));
 
-// Route 404
-app.use('*', (req, res) => {
+// Route 404 - VERSION CORRIGÉE
+app.all('*', (req, res) => {
     res.status(404).json({
         type: 'https://httpstatuses.com/404',
         title: 'Route non trouvée',

@@ -10,7 +10,8 @@ class EmailService {
     // Initialiser le transporteur
     async initTransporter() {
         try {
-            this.transporter = nodemailer.createTransporter(emailConfig);
+            // ✅ CORRECTION: createTransport au lieu de createTransporter
+            this.transporter = nodemailer.createTransport(emailConfig);
 
             // Vérifier la connexion en mode développement
             if (process.env.NODE_ENV === 'development') {
@@ -133,17 +134,17 @@ class EmailService {
               <h3>Que pouvez-vous faire maintenant ?</h3>
               
               <div class="feature">
-                <h4> Explorer les POI</h4>
+                <h4>🗺️ Explorer les POI</h4>
                 <p>Découvrez tous les points d'intérêt de Yaoundé et ses environs.</p>
               </div>
               
               <div class="feature">
-                <h4> Ajouter aux favoris</h4>
+                <h4>❤️ Ajouter aux favoris</h4>
                 <p>Sauvegardez vos lieux préférés pour les retrouver facilement.</p>
               </div>
               
               <div class="feature">
-                <h4> Commenter et noter</h4>
+                <h4>💬 Commenter et noter</h4>
                 <p>Partagez votre expérience et aidez la communauté.</p>
               </div>
               

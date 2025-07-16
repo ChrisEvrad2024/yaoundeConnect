@@ -152,7 +152,7 @@ module.exports = (sequelize) => {
         PointInterest.belongsTo(models.Quartier, { foreignKey: 'quartier_id' });
         PointInterest.belongsTo(models.Category, {
             foreignKey: 'category_id',
-            targetKey: 'translate_id'  // Référence translate_id au lieu de id
+            // targetKey: 'translate_id'  // Référence translate_id au lieu de id
         });
         PointInterest.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
         PointInterest.belongsTo(models.User, { foreignKey: 'created_by', as: 'creator' });

@@ -1,11 +1,8 @@
-// src/middlewares/authMiddleware.js
-
 const AuthService = require('../services/authService');
 const { User } = require('../models');
 
 const authMiddleware = async (req, res, next) => {
     try {
-        // Récupérer le token depuis l'header Authorization
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -17,12 +14,9 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        const token = authHeader.substring(7); // Enlever "Bearer "
-
-        // Vérifier le token
+        const token = authHeader.substring(7);
         const decoded = AuthService.verifyToken(token);
 
-        // Récupérer l'utilisateur depuis la base de données
         const user = await User.findByPk(decoded.id, {
             attributes: { exclude: ['password', 'email_verification_token'] }
         });
@@ -45,7 +39,6 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        // Ajouter l'utilisateur à l'objet request
         req.user = user;
         next();
 

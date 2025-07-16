@@ -1,93 +1,72 @@
-const Joi = require('joi');
+// src/middlewares/authMiddleware.js
 
-const authValidator = {
+const AuthService = require('../services/authService');
+const { User } = require('../models');
 
-    // Validation inscription
-    register: Joi.object({
-        name: Joi.string()
-            .min(2)
-            .max(255)
-            .trim()
-            .required()
-            .messages({
-                'string.empty': 'Le nom est requis',
-                'string.min': 'Le nom doit contenir au moins 2 caractères',
-                'string.max': 'Le nom ne peut pas dépasser 255 caractères'
-            }),
+const authMiddleware = async (req, res, next) => {
+    try {
+        // Récupérer le token depuis l'header Authorization
+        const authHeader = req.headers.authorization;
 
-        email: Joi.string()
-            .email()
-            .trim()
-            .lowercase()
-            .required()
-            .messages({
-                'string.empty': 'L\'email est requis',
-                'string.email': 'L\'email doit être valide'
-            }),
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                type: 'https://httpstatuses.com/401',
+                title: 'Authentification requise',
+                status: 401,
+                detail: 'Token d\'authentification manquant'
+            });
+        }
 
-        password: Joi.string()
-            .min(8)
-            .max(128)
-            .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\\$%\\^&\\*])'))
-            .required()
-            .messages({
-                'string.empty': 'Le mot de passe est requis',
-                'string.min': 'Le mot de passe doit contenir au moins 8 caractères',
-                'string.pattern.base': 'Le mot de passe doit contenir au moins une minuscule, une majuscule, un chiffre et un caractère spécial'
-            }),
+        const token = authHeader.substring(7); // Enlever "Bearer "
 
-        role: Joi.string()
-            .valid('membre', 'collecteur', 'moderateur', 'admin', 'superadmin')
-            .default('membre')
-            .messages({
-                'any.only': 'Le rôle doit être valide'
-            })
-    }),
+        // Vérifier le token
+        const decoded = AuthService.verifyToken(token);
 
-    // Validation connexion
-    login: Joi.object({
-        email: Joi.string()
-            .email()
-            .trim()
-            .lowercase()
-            .required()
-            .messages({
-                'string.empty': 'L\'email est requis',
-                'string.email': 'L\'email doit être valide'
-            }),
+        // Récupérer l'utilisateur depuis la base de données
+        const user = await User.findByPk(decoded.id, {
+            attributes: { exclude: ['password', 'email_verification_token'] }
+        });
 
-        password: Joi.string()
-            .required()
-            .messages({
-                'string.empty': 'Le mot de passe est requis'
-            })
-    }),
+        if (!user) {
+            return res.status(401).json({
+                type: 'https://httpstatuses.com/401',
+                title: 'Utilisateur non trouvé',
+                status: 401,
+                detail: 'L\'utilisateur associé à ce token n\'existe plus'
+            });
+        }
 
-    // Validation vérification email
-    verifyEmail: Joi.object({
-        token: Joi.string()
-            .length(64)
-            .pattern(/^[a-f0-9]+$/)
-            .required()
-            .messages({
-                'string.empty': 'Le token est requis',
-                'string.length': 'Token invalide',
-                'string.pattern.base': 'Token invalide'
-            })
-    }),
+        if (!user.is_email_verified) {
+            return res.status(401).json({
+                type: 'https://httpstatuses.com/401',
+                title: 'Email non vérifié',
+                status: 401,
+                detail: 'Veuillez vérifier votre email avant de continuer'
+            });
+        }
 
-    // Validation resend verification
-    resendVerification: Joi.object({
-        email: Joi.string()
-            .email()
-            .trim()
-            .lowercase()
-            .required()
-            .messages({
-                'string.empty': 'L\'email est requis',
-                'string.email': 'L\'email doit être valide'
-            })
-    })
+        // Ajouter l'utilisateur à l'objet request
+        req.user = user;
+        next();
+
+    } catch (error) {
+        if (error.message === 'Token invalide') {
+            return res.status(401).json({
+                type: 'https://httpstatuses.com/401',
+                title: 'Token invalide',
+                status: 401,
+                detail: 'Le token d\'authentification est invalide ou expiré'
+            });
+        }
+
+        console.error('Erreur middleware auth:', error);
+        return res.status(500).json({
+            type: 'https://httpstatuses.com/500',
+            title: 'Erreur interne',
+            status: 500,
+            detail: 'Erreur lors de la vérification de l\'authentification'
+        });
+    }
 };
 
-module.exports = authValidator;
+module.exports = authMiddleware;
