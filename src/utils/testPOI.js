@@ -28,7 +28,7 @@ const testPOI = async () => {
             code: 237,
             name: 'Cameroun Test',
             continent_name: 'Afrique',
-            flag: 'cm.png'
+            flag: 'Cameroon.png'
         });
         await testCountry.update({ translate_id: testCountry.id });
         testEntities.push({ model: 'Country', id: testCountry.id });

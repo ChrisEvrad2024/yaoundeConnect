@@ -1,0 +1,1211 @@
+openapi: 3.0.0
+info:
+  title: yaoundeConnect API
+  description: API RESTful pour la plateforme de guide touristique collaboratif de Yaoundé
+  version: 1.0.0
+  contact:
+    name: yaoundeConnect Support
+    email: support@yaoundeconnect.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000/api
+    description: Serveur de développement
+  - url: https://api.yaoundeconnect.com
+    description: Serveur de production
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        role:
+          type: string
+          enum: [membre, collecteur, moderateur, admin, superadmin]
+          example: "collecteur"
+        is_email_verified:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+
+    PointInterest:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Restaurant Le Palais"
+        description:
+          type: string
+          example: "Excellent restaurant de cuisine camerounaise"
+        adress:
+          type: string
+          example: "123 Avenue Kennedy, Centre-ville"
+        latitude:
+          type: number
+          format: float
+          example: 3.8480
+        longitude:
+          type: number
+          format: float
+          example: 11.5021
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          example: "approved"
+        rating:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+          example: 4.2
+        rating_count:
+          type: integer
+          example: 15
+        quartier_id:
+          type: integer
+          example: 1
+        category_id:
+          type: integer
+          example: 1
+        created_by:
+          type: integer
+          example: 1
+        imageUrls:
+          type: object
+          properties:
+            original:
+              type: string
+              example: "/uploads/images/poi/restaurant-123.jpg"
+            thumbnails:
+              type: object
+              properties:
+                small:
+                  type: string
+                medium:
+                  type: string
+                large:
+                  type: string
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        content:
+          type: string
+          example: "Excellent restaurant, je recommande vivement !"
+        poi_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 1
+        parent_id:
+          type: integer
+          nullable: true
+          example: null
+        status:
+          type: string
+          enum: [pending, approved, rejected, flagged]
+          example: "approved"
+        likes_count:
+          type: integer
+          example: 5
+        is_edited:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+        author:
+          $ref: '#/components/schemas/User'
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+
+    Rating:
+      type: object
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        poi_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 1
+
+    Error:
+      type: object
+      properties:
+        type:
+          type: string
+          example: "https://httpstatuses.com/400"
+        title:
+          type: string
+          example: "Données invalides"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "Les données fournies ne respectent pas le format attendu"
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+tags:
+  - name: Authentication
+    description: Gestion de l'authentification et des utilisateurs
+  - name: POI Management
+    description: Gestion des points d'intérêt
+  - name: Comments & Ratings
+    description: Système de commentaires et notations
+  - name: Moderation
+    description: Outils de modération
+  - name: Geography
+    description: Services géographiques avec OpenStreetMap
+
+paths:
+  /health:
+    get:
+      tags: [Health Check]
+      summary: Vérifier l'état du serveur
+      description: Endpoint de santé pour vérifier que l'API fonctionne
+      responses:
+        '200':
+          description: Serveur en fonctionnement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                    example: 3600.123
+
+  # AUTHENTICATION ENDPOINTS
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Inscription d'un nouvel utilisateur
+      description: Créer un nouveau compte utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                  example: "Jean Dupont"
+                email:
+                  type: string
+                  format: email
+                  example: "jean.dupont@example.com"
+                password:
+                  type: string
+                  minLength: 8
+                  example: "MonMotDePasse123!"
+                role:
+                  type: string
+                  enum: [membre, collecteur, moderateur, admin, superadmin]
+                  default: membre
+                  example: "collecteur"
+      responses:
+        '201':
+          description: Inscription réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '409':
+          description: Email déjà utilisé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Données invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Connexion utilisateur
+      description: Authentifier un utilisateur et récupérer un token JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "jean.dupont@example.com"
+                password:
+                  type: string
+                  example: "MonMotDePasse123!"
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Connexion réussie"
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '401':
+          description: Identifiants invalides ou email non vérifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/verify-email:
+    get:
+      tags: [Authentication]
+      summary: Vérifier l'adresse email
+      description: Valider l'email avec le token reçu par email
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Token de vérification reçu par email
+      responses:
+        '200':
+          description: Email vérifié avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Token invalide ou expiré
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Obtenir le profil utilisateur
+      description: Récupérer les informations de l'utilisateur connecté
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profil utilisateur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Non authentifié
+
+  # POI MANAGEMENT ENDPOINTS
+  /poi:
+    get:
+      tags: [POI Management]
+      summary: Rechercher des points d'intérêt
+      description: Lister et filtrer les POI avec pagination
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Recherche textuelle dans nom, description, adresse
+          example: "restaurant"
+        - name: quartier_id
+          in: query
+          schema:
+            type: integer
+          description: Filtrer par quartier
+        - name: category_id
+          in: query
+          schema:
+            type: integer
+          description: Filtrer par catégorie
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+          description: Filtrer par statut (défaut approved)
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [name, created_at, rating]
+            default: created_at
+        - name: sort_order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Liste des POI
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PointInterest'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      hasNext:
+                        type: boolean
+                      hasPrev:
+                        type: boolean
+
+    post:
+      tags: [POI Management]
+      summary: Créer un nouveau POI
+      description: Ajouter un point d'intérêt (nécessite le rôle collecteur+)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, description, adress, latitude, longitude, quartier_id, category_id]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                  example: "Restaurant Le Camerounais"
+                description:
+                  type: string
+                  minLength: 10
+                  maxLength: 2000
+                  example: "Excellent restaurant de cuisine traditionnelle camerounaise"
+                adress:
+                  type: string
+                  minLength: 5
+                  maxLength: 255
+                  example: "123 Avenue Kennedy, Centre-ville"
+                latitude:
+                  type: number
+                  format: float
+                  minimum: -90
+                  maximum: 90
+                  example: 3.8480
+                longitude:
+                  type: number
+                  format: float
+                  minimum: -180
+                  maximum: 180
+                  example: 11.5021
+                quartier_id:
+                  type: integer
+                  example: 1
+                category_id:
+                  type: integer
+                  example: 1
+                is_restaurant:
+                  type: integer
+                  enum: [0, 1]
+                  default: 0
+                is_booking:
+                  type: integer
+                  enum: [0, 1]
+                  default: 0
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Images du POI (max 5 fichiers, 10MB chacun)
+      responses:
+        '201':
+          description: POI créé avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/PointInterest'
+        '400':
+          description: Données invalides
+        '401':
+          description: Non authentifié
+        '403':
+          description: Permissions insuffisantes
+
+  /poi/{id}:
+    get:
+      tags: [POI Management]
+      summary: Obtenir un POI par ID
+      description: Récupérer les détails complets d'un point d'intérêt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID du POI
+      responses:
+        '200':
+          description: Détails du POI
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PointInterest'
+        '404':
+          description: POI non trouvé
+
+    put:
+      tags: [POI Management]
+      summary: Mettre à jour un POI
+      description: Modifier un POI (créateur ou modérateur+)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                adress:
+                  type: string
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+                is_restaurant:
+                  type: integer
+                  enum: [0, 1]
+      responses:
+        '200':
+          description: POI mis à jour
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/PointInterest'
+        '403':
+          description: Permissions insuffisantes
+        '404':
+          description: POI non trouvé
+
+    delete:
+      tags: [POI Management]
+      summary: Supprimer un POI
+      description: Supprimer un POI (créateur ou modérateur+)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: POI supprimé
+        '403':
+          description: Permissions insuffisantes
+        '404':
+          description: POI non trouvé
+
+  /poi/nearby:
+    get:
+      tags: [POI Management]
+      summary: POI à proximité
+      description: Rechercher des POI dans un rayon géographique
+      parameters:
+        - name: latitude
+          in: query
+          required: true
+          schema:
+            type: number
+            format: float
+          example: 3.8480
+        - name: longitude
+          in: query
+          required: true
+          schema:
+            type: number
+            format: float
+          example: 11.5021
+        - name: radius
+          in: query
+          schema:
+            type: number
+            format: float
+            minimum: 0.1
+            maximum: 50
+            default: 5
+          description: Rayon en kilomètres
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: POI à proximité trouvés
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/PointInterest'
+                        - type: object
+                          properties:
+                            distance:
+                              type: number
+                              format: float
+                              example: 1.25
+                              description: Distance en kilomètres
+                  center:
+                    type: object
+                    properties:
+                      latitude:
+                        type: number
+                      longitude:
+                        type: number
+                  radius:
+                    type: number
+
+  # COMMENTS & RATINGS ENDPOINTS
+  /comments:
+    post:
+      tags: [Comments & Ratings]
+      summary: Créer un commentaire
+      description: Ajouter un commentaire sur un POI
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content, poi_id]
+              properties:
+                content:
+                  type: string
+                  minLength: 5
+                  maxLength: 2000
+                  example: "Excellent restaurant avec un service impeccable !"
+                poi_id:
+                  type: integer
+                  example: 1
+                parent_id:
+                  type: integer
+                  nullable: true
+                  example: null
+                  description: ID du commentaire parent pour une réponse
+      responses:
+        '201':
+          description: Commentaire créé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Comment'
+        '429':
+          description: Trop de commentaires récents
+
+  /comments/{id}:
+    get:
+      tags: [Comments & Ratings]
+      summary: Obtenir un commentaire
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: include_replies
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Détails du commentaire
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Comment'
+
+    put:
+      tags: [Comments & Ratings]
+      summary: Modifier un commentaire
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 5
+                  maxLength: 2000
+      responses:
+        '200':
+          description: Commentaire modifié
+        '403':
+          description: Permissions insuffisantes ou délai dépassé
+
+    delete:
+      tags: [Comments & Ratings]
+      summary: Supprimer un commentaire
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Commentaire supprimé
+        '403':
+          description: Permissions insuffisantes
+
+  /comments/{id}/like:
+    post:
+      tags: [Comments & Ratings]
+      summary: Liker/Unliker un commentaire
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Like/Unlike effectué
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Commentaire liked"
+                  data:
+                    type: object
+                    properties:
+                      action:
+                        type: string
+                        enum: [liked, unliked]
+                      likes_count:
+                        type: integer
+                      user_liked:
+                        type: boolean
+
+  /poi/{poiId}/comments:
+    get:
+      tags: [Comments & Ratings]
+      summary: Lister les commentaires d'un POI
+      parameters:
+        - name: poiId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: sort_order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Liste des commentaires
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+                  pagination:
+                    type: object
+
+  /ratings/poi/{poiId}/rate:
+    post:
+      tags: [Comments & Ratings]
+      summary: Noter un POI
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: poiId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  example: 5
+      responses:
+        '200':
+          description: Note enregistrée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      action:
+                        type: string
+                        enum: [created, updated]
+                      new_rating:
+                        type: integer
+                      poi_stats:
+                        type: object
+                        properties:
+                          average:
+                            type: string
+                          count:
+                            type: integer
+
+    delete:
+      tags: [Comments & Ratings]
+      summary: Supprimer sa note
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: poiId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Note supprimée
+
+  /ratings/top:
+    get:
+      tags: [Comments & Ratings]
+      summary: Top POI les mieux notés
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: min_ratings
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 5
+          description: Nombre minimum de notes requises
+      responses:
+        '200':
+          description: Top POI par note
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        rating:
+                          type: number
+                        rating_count:
+                          type: integer
+                        category:
+                          type: string
+                        quartier:
+                          type: string
+
+  # MODERATION ENDPOINTS
+  /moderation/pending:
+    get:
+      tags: [Moderation]
+      summary: Lister les POI en attente
+      description: Récupérer les POI à modérer (modérateur+)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: POI en attente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PointInterest'
+                  pagination:
+                    type: object
+        '403':
+          description: Permissions insuffisantes
+
+  /moderation/poi/{id}/approve:
+    post:
+      tags: [Moderation]
+      summary: Approuver un POI
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comments:
+                  type: string
+                  maxLength: 500
+                  example: "POI validé - informations complètes"
+      responses:
+        '200':
+          description: POI approuvé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      poi_id:
+                        type: integer
+                      status:
+                        type: string
+                        example: "approved"
+                      approved_by:
+                        type: integer
+                      comments:
+                        type: string
+
+  /moderation/poi/{id}/reject:
+    post:
+      tags: [Moderation]
+      summary: Rejeter un POI
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
+                  example: "Informations insuffisantes - veuillez ajouter plus de détails"
+      responses:
+        '200':
+          description: POI rejeté
+
+  # GEOGRAPHY ENDPOINTS
+  /osm/geocode:
+    get:
+      tags: [Geography]
+      summary: Géocoder une adresse
+      description: Convertir une adresse en coordonnées GPS
+      parameters:
+        - name: address
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "Avenue Kennedy"
+        - name: city
+          in: query
+          schema:
+            type: string
+            default: "Yaoundé"
+        - name: country
+          in: query
+          schema:
+            type: string
+            default: "Cameroun"
+      responses:
+        '200':
+          description: Géocodage réussi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      best_match:
+                        type: object
+                        properties:
+                          latitude:
+                            type: number
+                          longitude:
+                            type: number
+                          formatted_address:
+                            type: string
+                          confidence:
+                            type: number
+                      results:
+                        type: array
+
+  /osm/reverse:
+    get:
+      tags: [Geography]
+      summary: Géocodage inverse
+      description: Convertir des coordonnées en adresse
+      parameters:
+        - name: latitude
+          in: query
+          required: true
+          schema:
+            type: number
+          example: 3.8480
+        - name: longitude
+          in: query
+          required: true
+          schema:
+            type: number
+          example: 11.5021
+      responses:
+        '200':
+          description: Adresse trouvée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      formatted_address:
+                        type: string
+                      address_components:
+                        type: object

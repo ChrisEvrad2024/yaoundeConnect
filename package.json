@@ -47,14 +47,20 @@
     "path-to-regexp": "^8.2.0",
     "sequelize": "^6.37.7",
     "sharp": "^0.34.3",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "artillery": "^2.0.23",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.5.1",
     "husky": "^9.1.7",
     "jest": "^30.0.4",
+    "jest-junit": "^16.0.0",
+    "newman": "^6.2.1",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
     "supertest": "^7.1.3"

@@ -44,7 +44,7 @@ const testSprint3Complete = async () => {
 
         // Données géographiques
         const country = await models.Country.create({
-            code: 237, name: 'Cameroun', continent_name: 'Afrique', flag: 'cm.png'
+            code: 237, name: 'Cameroun', continent_name: 'Afrique', flag: 'Cameroon.png'
         });
         await country.update({ translate_id: country.id });
         testEntities.push({ model: 'Country', id: country.id });

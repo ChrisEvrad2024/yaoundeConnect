@@ -38,7 +38,7 @@ const testApprovalSystem = async () => {
             code: 237,
             name: 'Cameroun Test',
             continent_name: 'Afrique',
-            flag: 'cm.png'
+            flag: 'Cameroon.png'
         });
         await country.update({ translate_id: country.id });
         testEntities.push({ model: 'Country', id: country.id });
