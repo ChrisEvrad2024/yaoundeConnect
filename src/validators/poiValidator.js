@@ -136,7 +136,32 @@ const poiValidator = {
     // Validation paramètres URL
     params: Joi.object({
         id: Joi.number().integer().positive().required()
-    })
+    }),
+
+    searchAdvanced: Joi.object({
+        q: Joi.string().max(255).trim(), // Recherche textuelle
+        quartier_id: Joi.number().integer().positive(),
+        category_id: Joi.number().integer().positive(),
+        is_restaurant: Joi.number().integer().min(0).max(1),
+        is_transport: Joi.number().integer().min(0).max(1),
+        is_stadium: Joi.number().integer().min(0).max(1),
+        is_booking: Joi.number().integer().min(0).max(1),
+        is_verified: Joi.number().integer().min(0).max(1),
+        status: Joi.string().valid('pending', 'approved', 'rejected'),
+
+        // Pagination cursor-based
+        cursor: Joi.number().integer().positive(),
+        useCursor: Joi.boolean().default(false),
+
+        // Pagination classique (fallback)
+        page: Joi.number().integer().min(1).default(1),
+        limit: Joi.number().integer().min(1).max(100).default(20),
+
+        // Tri
+        sort_by: Joi.string().valid('id', 'name', 'created_at', 'rating', 'rating_count').default('created_at'),
+        sort_order: Joi.string().valid('asc', 'desc').default('desc')
+    }),
+
 };
 
 module.exports = poiValidator;

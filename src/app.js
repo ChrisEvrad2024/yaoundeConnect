@@ -23,6 +23,9 @@ app.use(
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use('/api/osm', require('./routes/osm'));
+app.use('/api/comments', require('./routes/comments'));
+app.use('/api/ratings', require('./routes/ratings'));
 
 // Servir les fichiers statiques
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

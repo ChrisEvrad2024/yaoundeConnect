@@ -10,20 +10,17 @@ class EmailService {
     // Initialiser le transporteur
     async initTransporter() {
         try {
-            // ✅ CORRECTION: createTransport au lieu de createTransporter
             this.transporter = nodemailer.createTransport(emailConfig);
 
-            // Vérifier la connexion en mode développement
             if (process.env.NODE_ENV === 'development') {
                 await this.transporter.verify();
-                console.log('✅ Service email initialisé');
+                console.log(' Service email initialisé');
             }
         } catch (error) {
             console.warn('⚠️  Erreur initialisation email:', error.message);
         }
     }
 
-    // Envoyer un email générique
     async sendEmail(to, subject, html, text = null) {
         if (!this.transporter) {
             throw new Error('Service email non initialisé');

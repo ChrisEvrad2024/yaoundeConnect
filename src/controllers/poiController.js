@@ -1,6 +1,7 @@
 const POIService = require('../services/poiService');
 const { upload } = require('../config/upload');
 const notificationService = require('../services/notificationService');
+const OSMService = require('../services/osmService');
 
 class POIController {
 
@@ -52,6 +53,21 @@ class POIController {
                     status: 400,
                     detail: error.message
                 });
+            }
+
+            try {
+                const addressValidation = await OSMService.validateAddress(
+                    data.adress,
+                    data.latitude,
+                    data.longitude
+                );
+
+                if (!addressValidation.valid && addressValidation.distance_km > 1) {
+                    console.warn(` Adresse potentiellement incohérente: distance ${addressValidation.distance_km}km`);
+                    // Optionnel : ajouter un warning dans la réponse
+                }
+            } catch (osmError) {
+                console.warn(' Validation OSM indisponible:', osmError.message);
             }
 
             res.status(500).json({
@@ -373,6 +389,30 @@ class POIController {
                 title: 'Erreur upload',
                 status: 500,
                 detail: 'Une erreur est survenue lors de l\'upload des images'
+            });
+        }
+    }
+
+    static async searchPOIAdvanced(req, res) {
+        try {
+            const filters = req.query;
+            const result = await POIService.searchPOIAdvanced(filters);
+
+            res.json({
+                message: 'Recherche avancée effectuée avec succès',
+                data: result.data,
+                pagination: result.pagination,
+                filters: filters
+            });
+
+        } catch (error) {
+            console.error('Erreur recherche POI avancée:', error);
+
+            res.status(500).json({
+                type: 'https://httpstatuses.com/500',
+                title: 'Erreur de recherche',
+                status: 500,
+                detail: 'Une erreur est survenue lors de la recherche avancée'
             });
         }
     }

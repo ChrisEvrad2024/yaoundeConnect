@@ -17,7 +17,14 @@
     "test:poi": "node src/utils/testPOI.js",
     "test:poi-endpoints": "node src/utils/testPOIEndpoints.js",
     "test:all": "npm run test:connection && npm run test:db && npm run test:auth && npm run test:poi",
-    "setup:upload-dirs": "node -e \"require('./src/config/upload').createUploadDirs()\""
+    "setup:upload-dirs": "node -e \"require('./src/config/upload').createUploadDirs()\"",
+    "test:sprint2": "node src/utils/testSprint2Final.js",
+    "test:osm": "node src/utils/testOSMEndpoints.js",
+    "test:sprint2-complete": "npm run test:sprint2 && npm run test:osm",
+    "test:sprint3": "node src/utils/testSprint3.js",
+    "test:sprint3-endpoints": "node src/utils/testSprint3Endpoints.js",
+    "test:comments": "echo 'Testing comments system...' && node src/utils/testSprint3.js",
+    "test:ratings": "echo 'Testing ratings system...' && node src/utils/testSprint3.js"
   },
   "keywords": [],
   "author": "",

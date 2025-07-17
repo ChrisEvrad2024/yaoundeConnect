@@ -19,31 +19,34 @@ const Transport = require('./Transport')(sequelize);
 
 // Définir les associations
 const models = {
-  User,
-  Country,
-  Town,
-  Arrondissement,
-  Quartier,
-  Category,
-  PointInterest,
-  Service,
-  Price,
-  Contact,
-  Comment,
-  Rating,
-  Favorite,
-  AuditLog,
-  Transport
+    User,
+    Country,
+    Town,
+    Arrondissement,
+    Quartier,
+    Category,
+    PointInterest,
+    Service,
+    Price,
+    Contact,
+    Rating,
+    Comment,
+    CommentLike,
+    CommentReport,
+    Rating,
+    Favorite,
+    AuditLog,
+    Transport
 };
 
 // Établir les associations
 Object.keys(models).forEach((modelName) => {
-  if (models[modelName].associate) {
-    models[modelName].associate(models);
-  }
+    if (models[modelName].associate) {
+        models[modelName].associate(models);
+    }
 });
 
 module.exports = {
-  sequelize,
-  ...models
+    sequelize,
+    ...models
 };

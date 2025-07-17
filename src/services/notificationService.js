@@ -24,19 +24,19 @@ class NotificationService {
                 try {
                     const AuthService = require('./authService');
                     const decoded = AuthService.verifyToken(token);
-                    
+
                     socket.userId = decoded.id;
                     socket.userRole = decoded.role;
                     this.connectedUsers.set(decoded.id, socket.id);
-                    
+
                     // Rejoindre les salles appropriées selon le rôle
                     if (['moderateur', 'admin', 'superadmin'].includes(decoded.role)) {
                         socket.join('moderators');
                     }
-                    
+
                     socket.emit('authenticated', { userId: decoded.id, role: decoded.role });
                     console.log(`✅ Socket authentifié: User ${decoded.id} (${decoded.role})`);
-                    
+
                 } catch (error) {
                     console.error('❌ Erreur auth socket:', error.message);
                     socket.emit('auth_error', { message: 'Token invalide' });
@@ -51,13 +51,13 @@ class NotificationService {
             });
         });
 
-        console.log('🚀 Service de notifications initialisé');
+        console.log(' Service de notifications initialisé');
     }
 
     // Notifier l'approbation d'un POI
     async notifyPOIApproval(data) {
         const { poi, moderator_id, comments } = data;
-        
+
         try {
             // Notification temps réel au créateur
             const creatorSocketId = this.connectedUsers.get(poi.created_by);
@@ -97,7 +97,7 @@ class NotificationService {
     // Notifier le rejet d'un POI
     async notifyPOIRejection(data) {
         const { poi, moderator_id, reason } = data;
-        
+
         try {
             // Notification temps réel au créateur
             const creatorSocketId = this.connectedUsers.get(poi.created_by);
@@ -133,7 +133,7 @@ class NotificationService {
             console.error('❌ Erreur notification rejet:', error);
         }
     }
-     // Notifier la création d'un nouveau POI aux modérateurs
+    // Notifier la création d'un nouveau POI aux modérateurs
     async notifyPOICreated(poi) {
         try {
             this.io.to('moderators').emit('poi:created', {
@@ -156,7 +156,7 @@ class NotificationService {
     // Email d'approbation
     async sendApprovalEmail(poi, comments) {
         const subject = `✅ Votre POI "${poi.name}" a été approuvé !`;
-        
+
         const html = `
         <!DOCTYPE html>
         <html>
@@ -201,7 +201,7 @@ class NotificationService {
     // Email de rejet
     async sendRejectionEmail(poi, reason) {
         const subject = `❌ Votre POI "${poi.name}" nécessite des modifications`;
-        
+
         const html = `
         <!DOCTYPE html>
         <html>
@@ -245,6 +245,172 @@ class NotificationService {
         </html>`;
 
         return await emailService.sendEmail(poi.creator.email, subject, html);
+    }
+
+    async notifyCommentAdded(comment, poi) {
+        try {
+            // Notification temps réel au propriétaire du POI
+            const ownerSocketId = this.connectedUsers.get(poi.created_by);
+            if (ownerSocketId) {
+                this.io.to(ownerSocketId).emit('comment:added', {
+                    type: 'comment_added',
+                    comment_id: comment.id,
+                    poi_id: poi.id,
+                    poi_name: poi.name,
+                    author_name: comment.author.name,
+                    content: comment.content.substring(0, 100) + '...',
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            // Email au propriétaire du POI
+            if (poi.creator && poi.creator.email) {
+                await this.sendCommentNotificationEmail(comment, poi);
+            }
+
+        } catch (error) {
+            console.error('❌ Erreur notification commentaire:', error);
+        }
+    }
+
+    // Notifier qu'on a répondu à un commentaire
+    async notifyCommentReply(reply, parentComment) {
+        try {
+            // Notification temps réel à l'auteur du commentaire parent
+            const authorSocketId = this.connectedUsers.get(parentComment.user_id);
+            if (authorSocketId) {
+                this.io.to(authorSocketId).emit('comment:reply', {
+                    type: 'comment_reply',
+                    reply_id: reply.id,
+                    parent_comment_id: parentComment.id,
+                    author_name: reply.author.name,
+                    content: reply.content.substring(0, 100) + '...',
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            // Email à l'auteur du commentaire parent
+            if (parentComment.author && parentComment.author.email) {
+                await this.sendCommentReplyEmail(reply, parentComment);
+            }
+
+        } catch (error) {
+            console.error('❌ Erreur notification réponse:', error);
+        }
+    }
+
+    // Notifier les modérateurs d'un commentaire signalé
+    async notifyCommentReported(comment, report) {
+        try {
+            this.io.to('moderators').emit('comment:reported', {
+                type: 'comment_reported',
+                comment_id: comment.id,
+                report_id: report.id,
+                reason: report.reason,
+                reports_count: comment.reports_count,
+                content: comment.content.substring(0, 100) + '...',
+                timestamp: new Date().toISOString()
+            });
+
+            console.log(`📧 Modérateurs notifiés pour signalement commentaire ${comment.id}`);
+
+        } catch (error) {
+            console.error('❌ Erreur notification signalement:', error);
+        }
+    }
+
+    // Emails pour commentaires
+    async sendCommentNotificationEmail(comment, poi) {
+        const subject = `💬 Nouveau commentaire sur votre POI "${poi.name}"`;
+
+        const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            .container { max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; }
+            .header { background: #3b82f6; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background: #f9fafb; }
+            .comment { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6; }
+            .footer { padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>💬 Nouveau commentaire !</h1>
+            </div>
+            <div class="content">
+                <h2>Bonjour !</h2>
+                <p>Un nouvel avis a été laissé sur votre point d'intérêt <strong>"${poi.name}"</strong>.</p>
+                
+                <div class="comment">
+                    <h3>👤 ${comment.author.name}</h3>
+                    <p>${comment.content}</p>
+                    <small>Publié le ${new Date(comment.created_at).toLocaleDateString('fr-FR')}</small>
+                </div>
+                
+                <p>Vous pouvez répondre à ce commentaire directement sur la plateforme.</p>
+            </div>
+            <div class="footer">
+                <p>© 2025 yaoundeConnect. Tous droits réservés.</p>
+            </div>
+        </div>
+    </body>
+    </html>`;
+
+        return await emailService.sendEmail(poi.creator.email, subject, html);
+    }
+
+    async sendCommentReplyEmail(reply, parentComment) {
+        const subject = `↩️ Réponse à votre commentaire`;
+
+        const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            .container { max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; }
+            .header { background: #10b981; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background: #f9fafb; }
+            .comment { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; }
+            .original { border-left: 4px solid #6b7280; }
+            .reply { border-left: 4px solid #10b981; }
+            .footer { padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>↩️ Réponse à votre commentaire</h1>
+            </div>
+            <div class="content">
+                <h2>Bonjour ${parentComment.author.name} !</h2>
+                <p>Quelqu'un a répondu à votre commentaire :</p>
+                
+                <div class="comment original">
+                    <h4>Votre commentaire :</h4>
+                    <p>${parentComment.content}</p>
+                </div>
+                
+                <div class="comment reply">
+                    <h4>👤 ${reply.author.name} a répondu :</h4>
+                    <p>${reply.content}</p>
+                    <small>Publié le ${new Date(reply.created_at).toLocaleDateString('fr-FR')}</small>
+                </div>
+                
+                <p>Vous pouvez continuer la conversation sur la plateforme.</p>
+            </div>
+            <div class="footer">
+                <p>© 2025 yaoundeConnect. Tous droits réservés.</p>
+            </div>
+        </div>
+    </body>
+    </html>`;
+
+        return await emailService.sendEmail(parentComment.author.email, subject, html);
     }
 }
 

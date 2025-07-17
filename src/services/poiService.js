@@ -2,6 +2,8 @@ const { PointInterest, Category, Quartier, Town, User, Favorite } = require('../
 const { Op } = require('sequelize');
 const GeoService = require('./geoService');
 const ImageService = require('./imageService');
+const OSMService = require('./osmService');
+const PaginationService = require('./paginationService');
 
 class POIService {
 
@@ -420,5 +422,149 @@ class POIService {
             created_at: poi.created_at,
             is_verified: poi.is_verify
         };
+    }
+
+    // Valider une adresse avec OSM lors de la création
+    static async validatePOIAddress(adress, latitude, longitude) {
+        try {
+            const validation = await OSMService.validateAddress(adress, latitude, longitude);
+
+            if (!validation.valid) {
+                console.warn(`⚠️ Adresse potentiellement incorrecte: ${adress}`);
+                console.warn(`   Distance: ${validation.distance_km}km`);
+                console.warn(`   Suggestions: ${validation.suggestions?.map(s => s.formatted_address).join(', ')}`);
+            }
+
+            return validation;
+        } catch (error) {
+            console.error('❌ Erreur validation adresse OSM:', error);
+            // Ne pas faire échouer la création pour une erreur de validation
+            return { valid: true, warning: 'Validation OSM indisponible' };
+        }
+    }
+
+    // Enrichir un POI avec des données OSM
+    static async enrichPOIWithOSM(poi) {
+        try {
+            // Géocodage inverse pour obtenir des détails d'adresse
+            const reverseResult = await OSMService.reverseGeocode(poi.latitude, poi.longitude);
+
+            if (reverseResult.success) {
+                poi.osm_data = {
+                    formatted_address: reverseResult.formatted_address,
+                    address_components: reverseResult.address_components,
+                    osm_id: reverseResult.osm_id
+                };
+            }
+
+            // Rechercher des POI similaires à proximité
+            const nearbyOSMPOIs = await OSMService.findNearbyOSMPOIs(
+                poi.latitude,
+                poi.longitude,
+                0.5, // 500m de rayon
+                poi.Category?.slug
+            );
+
+            if (nearbyOSMPOIs.success) {
+                poi.nearby_osm_pois = nearbyOSMPOIs.pois.slice(0, 5);
+            }
+
+            return poi;
+
+        } catch (error) {
+            console.error('❌ Erreur enrichissement OSM:', error);
+            return poi; // Retourner le POI original en cas d'erreur
+        }
+    }
+
+    // Recherche améliorée avec pagination cursor
+    static async searchPOIAdvanced(filters = {}) {
+        const {
+            cursor,
+            useCursor = false,
+            ...searchFilters
+        } = filters;
+
+        try {
+            // Construire les conditions WHERE
+            const whereConditions = this.buildSearchConditions(searchFilters);
+
+            // Relations à inclure
+            const include = [
+                {
+                    model: require('../models').Category,
+                    attributes: ['id', 'name', 'slug', 'icon']
+                },
+                {
+                    model: require('../models').Quartier,
+                    attributes: ['id', 'name'],
+                    include: [{
+                        model: require('../models').Town,
+                        attributes: ['id', 'name']
+                    }]
+                }
+            ];
+
+            // Utiliser la pagination appropriée
+            const paginationOptions = {
+                ...filters,
+                where: whereConditions,
+                include,
+                model: PointInterest
+            };
+
+            const result = useCursor
+                ? await PaginationService.cursorPaginate(PointInterest, paginationOptions)
+                : await PaginationService.offsetPaginate(PointInterest, paginationOptions);
+
+            // Ajouter les URLs des images
+            result.data = result.data.map(poi => this.addImageUrls(poi));
+
+            return result;
+
+        } catch (error) {
+            console.error('❌ Erreur recherche POI avancée:', error);
+            throw error;
+        }
+    }
+
+    // Helper pour construire les conditions de recherche
+    static buildSearchConditions(filters) {
+        const {
+            q, quartier_id, category_id, is_restaurant, is_transport,
+            is_stadium, is_booking, is_verified, status
+        } = filters;
+
+        const whereConditions = {};
+
+        // Recherche textuelle
+        if (q) {
+            whereConditions[Op.or] = [
+                { name: { [Op.like]: `%${q}%` } },
+                { description: { [Op.like]: `%${q}%` } },
+                { adress: { [Op.like]: `%${q}%` } }
+            ];
+        }
+
+        // Filtres par champs
+        if (quartier_id) whereConditions.quartier_id = quartier_id;
+        if (category_id) whereConditions.category_id = category_id;
+        if (is_restaurant !== undefined) whereConditions.is_restaurant = is_restaurant;
+        if (is_transport !== undefined) whereConditions.is_transport = is_transport;
+        if (is_stadium !== undefined) whereConditions.is_stadium = is_stadium;
+        if (is_booking !== undefined) whereConditions.is_booking = is_booking;
+        if (is_verified !== undefined) whereConditions.is_verify = is_verified;
+
+        // Statut
+        if (status) {
+            if (status === 'approved') whereConditions.status = 'approved';
+            else if (status === 'pending') whereConditions.status = 'pending';
+            else if (status === 'rejected') whereConditions.status = 'rejected';
+        } else {
+            // Par défaut, ne montrer que les POI approuvés
+            whereConditions.status = 'approved';
+        }
+
+        return whereConditions;
     }
 }

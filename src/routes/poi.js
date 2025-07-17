@@ -12,8 +12,8 @@ const router = express.Router();
 
 // GET /api/poi - Rechercher et lister les POI
 router.get('/',
-    validationMiddleware(poiValidator.search, 'query'),
-    POIController.searchPOI
+    validationMiddleware(poiValidator.searchAdvanced, 'query'),
+    POIController.searchPOIAdvanced
 );
 
 // GET /api/poi/nearby - POI à proximité
