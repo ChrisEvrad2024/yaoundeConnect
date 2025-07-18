@@ -2,55 +2,121 @@ const nodemailer = require('nodemailer');
 const emailConfig = require('../config/email');
 
 class EmailService {
-    constructor() {
-        this.transporter = null;
-        this.initTransporter();
+  constructor() {
+    this.transporter = null;
+    this.isDevelopment = process.env.NODE_ENV === 'development';
+    this.initTransporter();
+  }
+
+  // Initialiser le transporteur
+  async initTransporter() {
+    try {
+      // En développement, utiliser un transporteur factice
+      if (this.isDevelopment) {
+        this.transporter = nodemailer.createTransport({
+          streamTransport: true,
+          newline: 'unix',
+          buffer: true
+        });
+        console.log('📧 Service email initialisé (mode développement - simulation)');
+        return;
+      }
+
+      // En production, utiliser la vraie configuration
+      this.transporter = nodemailer.createTransporter(emailConfig);
+
+      // Vérifier seulement en production
+      await this.transporter.verify();
+      console.log('📧 Service email initialisé (mode production)');
+    } catch (error) {
+      console.warn('⚠️  Erreur initialisation email:', error.message);
+
+      // Fallback vers le mode simulation si échec
+      this.transporter = nodemailer.createTransporter({
+        streamTransport: true,
+        newline: 'unix',
+        buffer: true
+      });
+      console.log('📧 Service email initialisé (mode simulation - fallback)');
+    }
+  }
+
+  async sendEmail(to, subject, html, text = null) {
+    if (!this.transporter) {
+      throw new Error('Service email non initialisé');
     }
 
-    // Initialiser le transporteur
-    async initTransporter() {
-        try {
-            this.transporter = nodemailer.createTransport(emailConfig);
+    const mailOptions = {
+      from: `${emailConfig.from.name} <${emailConfig.from.address}>`,
+      to,
+      subject,
+      html,
+      text: text || this.htmlToText(html)
+    };
 
-            if (process.env.NODE_ENV === 'development') {
-                await this.transporter.verify();
-                console.log(' Service email initialisé');
-            }
-        } catch (error) {
-            console.warn('⚠️  Erreur initialisation email:', error.message);
-        }
-    }
+    try {
+      if (this.isDevelopment) {
+        // En développement, simuler l'envoi
+        console.log('📧 [SIMULATION] Email qui serait envoyé:');
+        console.log(`   Destinataire: ${to}`);
+        console.log(`   Sujet: ${subject}`);
+        console.log(`   Contenu: ${text || 'Version HTML disponible'}`);
 
-    async sendEmail(to, subject, html, text = null) {
-        if (!this.transporter) {
-            throw new Error('Service email non initialisé');
-        }
-
-        const mailOptions = {
-            from: `${emailConfig.from.name} <${emailConfig.from.address}>`,
-            to,
-            subject,
-            html,
-            text: text || this.htmlToText(html)
+        // Retourner un objet simulé
+        return {
+          messageId: `simulated-${Date.now()}@yaoundeconnect.local`,
+          accepted: [to],
+          rejected: [],
+          pending: [],
+          response: 'Email simulé en mode développement'
         };
+      }
 
-        try {
-            const info = await this.transporter.sendMail(mailOptions);
-            console.log(`📧 Email envoyé à ${to}: ${info.messageId}`);
-            return info;
-        } catch (error) {
-            console.error('❌ Erreur envoi email:', error);
-            throw new Error('Erreur lors de l\'envoi de l\'email');
-        }
+      // En production, envoyer réellement
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(`📧 Email envoyé à ${to}: ${info.messageId}`);
+      return info;
+    } catch (error) {
+      console.error('❌ Erreur envoi email:', error);
+
+      // En développement, ne pas faire échouer
+      if (this.isDevelopment) {
+        console.log('📧 [SIMULATION] Email envoyé (erreur ignorée en dev)');
+        return {
+          messageId: `simulated-error-${Date.now()}@yaoundeconnect.local`,
+          accepted: [to],
+          rejected: [],
+          pending: [],
+          response: 'Email simulé après erreur'
+        };
+      }
+
+      throw new Error("Erreur lors de l'envoi de l'email");
     }
+  }
 
-    // Envoyer un email de vérification
-    async sendVerificationEmail(user, verificationToken) {
-        const verificationUrl = `${emailConfig.baseUrl}/api/auth/verify-email?token=${verificationToken}`;
+  // Envoyer un email de vérification
+  async sendVerificationEmail(user, verificationToken) {
+    const verificationUrl = `${emailConfig.baseUrl}/api/auth/verify-email?token=${verificationToken}`;
 
-        const subject = `Vérifiez votre compte ${emailConfig.from.name}`;
+    const subject = `Vérifiez votre compte ${emailConfig.from.name}`;
 
-        const html = `
+    // Version texte simple pour le développement
+    const text = `
+Bonjour ${user.name},
+
+Merci de vous être inscrit sur ${emailConfig.from.name}.
+
+Pour vérifier votre email, cliquez sur ce lien :
+${verificationUrl}
+
+Ce lien expire dans 24 heures.
+
+--
+Équipe ${emailConfig.from.name}
+    `;
+
+    const html = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -99,14 +165,38 @@ class EmailService {
       </html>
     `;
 
-        return await this.sendEmail(user.email, subject, html);
+    // En développement, afficher le lien de vérification
+    if (this.isDevelopment) {
+      console.log('🔗 [DEV] Lien de vérification email:');
+      console.log(`   ${verificationUrl}`);
+      console.log("💡 Utilisez ce lien pour vérifier l'email manuellement");
     }
 
-    // Envoyer un email de bienvenue
-    async sendWelcomeEmail(user) {
-        const subject = `Bienvenue sur ${emailConfig.from.name}!`;
+    return await this.sendEmail(user.email, subject, html, text);
+  }
 
-        const html = `
+  // Envoyer un email de bienvenue
+  async sendWelcomeEmail(user) {
+    const subject = `Bienvenue sur ${emailConfig.from.name}!`;
+
+    const text = `
+Félicitations ${user.name}!
+
+Votre compte ${emailConfig.from.name} est maintenant activé.
+
+Que pouvez-vous faire maintenant ?
+- Explorer les POI de Yaoundé
+- Ajouter vos lieux favoris
+- Commenter et noter les lieux
+- Contribuer en ajoutant de nouveaux POI
+
+Commencez l'exploration : ${emailConfig.baseUrl}
+
+--
+Équipe ${emailConfig.from.name}
+    `;
+
+    const html = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -164,16 +254,16 @@ class EmailService {
       </html>
     `;
 
-        return await this.sendEmail(user.email, subject, html);
-    }
+    return await this.sendEmail(user.email, subject, html, text);
+  }
 
-    // Convertir HTML basique en texte
-    htmlToText(html) {
-        return html
-            .replace(/<[^>]*>/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
+  // Convertir HTML basique en texte
+  htmlToText(html) {
+    return html
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
 }
 
 // Instance singleton

@@ -1,0 +1,120 @@
+### Connexion
+##POST http://localhost:9999/api/auth/login
+##Content-Type: application/json
+
+##{
+  ##"email": "josephchrisevrad@gmail.com",
+  #"password": "OmgbaFouda123!"
+#}
+### Inscription
+@baseUrl = http://localhost:9999
+@token =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MTgsImVtYWlsIjoiam9zZXBoY2hyaXNldnJhZEBnbWFpbC5jb20iLCJyb2xlIjoiY29sbGVjdGV1ciIsImlhdCI6MTc1MjgyMzMzNywiZXhwIjoxNzUzNDI4MTM3fQ.SDRKlrIyK2lbMs_r5oOfyjYcquxKFxCkUcLguryKxcw
+
+### 1. Test du Profil Utilisateur
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### 2. Health Check (sans token)
+GET {{baseUrl}}/health
+
+### 3. Créer un POI
+POST {{baseUrl}}/api/poi
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Restaurant Chez Chris",
+  "description": "Restaurant de cuisine camerounaise authentique. Spécialités locales : ndolé, poulet DG, poisson braisé. Ambiance chaleureuse et service de qualité.",
+  "adress": "QGWQ+2HX, Odza petit marché, Yaoundé",
+  "latitude": 3.8450,
+  "longitude": 11.5020,
+  "quartier_id": 16,
+  "category_id": 5,
+  "is_restaurant": 1,
+  "is_booking": 1
+}
+
+### 3. Créer un autre POI
+POST {{baseUrl}}/api/poi
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Hôtel Baben Lodge",
+  "description": "Hôtel moderne situé près du Collège Baben. Chambres confortables, connexion WiFi, parking sécurisé. Idéal pour voyageurs d'affaires et touristes.",
+  "adress": "Collège Privé Bilingue Baben, Yaoundé",
+  "latitude": 3.8470,
+  "longitude": 11.5025,
+  "quartier_id": 16,
+  "category_id": 5,
+  "is_booking": 1
+}
+
+### 4. Lister les POI (public)
+GET {{baseUrl}}/api/poi?limit=10&page=1
+
+### 5. POI à proximité
+GET {{baseUrl}}/api/poi/nearby?latitude=3.8480&longitude=11.5021&radius=5&limit=10
+
+### Lister tous les POI
+GET {{baseUrl}}/api/poi?limit=10&page=1
+
+### Rechercher POI par nom
+GET {{baseUrl}}/api/poi?q=Restaurant&limit=5
+
+### Détails d'un POI spécifique (remplacez par un vrai ID)
+GET {{baseUrl}}/api/poi/{{poiId}}
+
+### Géocoder une adresse de Yaoundé
+GET {{baseUrl}}/api/osm/geocode?address=Avenue Kennedy&city=Yaoundé&country=Cameroun
+
+### Valider une adresse
+POST {{baseUrl}}/api/osm/validate
+Content-Type: application/json
+
+{
+  "address": "Avenue de l'Indépendance, Yaoundé",
+  "latitude": 3.8480,
+  "longitude": 11.5021
+}
+
+################################################ CREATION USERS
+POST http://localhost:9999/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "omgbaomgba79@gmail.com",
+  "password": "OMGBa123!"
+}
+### Inscription d'un utilisateur
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Mme Solange",
+  "email": "marie.nguyen@yaoundeconnect.com",
+  "password": "Solange123!",
+  "role": "moderateur"
+}
+
+### Créer un COLLECTEUR de données
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Paul MBARGA",
+  "email": "paul.mbarga@yaoundeconnect.com",
+  "password": "Collecteur123!",
+  "role": "collecteur"
+}
+
+### Créer un ADMINISTRATEUR
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Sophie ATANGANA",
+  "email": "sophie.atangana@yaoundeconnect.com",
+  "password": "Admin123!",
+  "role": "admin"
+}
