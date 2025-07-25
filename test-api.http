@@ -6,6 +6,8 @@
   ##"email": "josephchrisevrad@gmail.com",
   #"password": "OmgbaFouda123!"
 #}
+
+
 ### Inscription
 @baseUrl = http://localhost:9999
 @token =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MTgsImVtYWlsIjoiam9zZXBoY2hyaXNldnJhZEBnbWFpbC5jb20iLCJyb2xlIjoiY29sbGVjdGV1ciIsImlhdCI6MTc1MjgyMzMzNywiZXhwIjoxNzUzNDI4MTM3fQ.SDRKlrIyK2lbMs_r5oOfyjYcquxKFxCkUcLguryKxcw
@@ -14,8 +16,17 @@
 GET {{baseUrl}}/api/auth/me
 Authorization: Bearer {{token}}
 
+
 ### 2. Health Check (sans token)
 GET {{baseUrl}}/health
+
+#login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+{
+  "email": "omgbaomgba79@gmail.com",
+  "password": "OMGBa123!"
+}
 
 ### 3. Créer un POI
 POST {{baseUrl}}/api/poi
@@ -91,8 +102,8 @@ POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
 {
-  "name": "Mme Solange",
-  "email": "marie.nguyen@yaoundeconnect.com",
+  "name": "Mme 2",
+  "email": "chrisomgba04@gmail.com",
   "password": "Solange123!",
   "role": "moderateur"
 }

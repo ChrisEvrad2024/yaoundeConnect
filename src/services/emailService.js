@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const emailConfig = require('../config/email');
+const emailProviderService = require('./emailProviderService');
 
 class EmailService {
   constructor() {
@@ -23,7 +24,7 @@ class EmailService {
       }
 
       // En production, utiliser la vraie configuration
-      this.transporter = nodemailer.createTransporter(emailConfig);
+      this.transporter = nodemailer.createTransport(emailConfig);
 
       // Vérifier seulement en production
       await this.transporter.verify();
@@ -32,7 +33,7 @@ class EmailService {
       console.warn('⚠️  Erreur initialisation email:', error.message);
 
       // Fallback vers le mode simulation si échec
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         streamTransport: true,
         newline: 'unix',
         buffer: true
@@ -177,6 +178,9 @@ Ce lien expire dans 24 heures.
 
   // Envoyer un email de bienvenue
   async sendWelcomeEmail(user) {
+    const providerInfo = emailProviderService.getProviderInfo(user.email);
+    const mailboxUrl = emailProviderService.getMailboxUrl(user.email);
+
     const subject = `Bienvenue sur ${emailConfig.from.name}!`;
 
     const text = `
@@ -192,67 +196,169 @@ Que pouvez-vous faire maintenant ?
 
 Commencez l'exploration : ${emailConfig.baseUrl}
 
+Pour accéder rapidement à vos futurs emails de notre part :
+${mailboxUrl ? `Ouvrir ${providerInfo.name} : ${mailboxUrl}` : 'Consultez votre boîte mail'}
+
 --
 Équipe ${emailConfig.from.name}
-    `;
+  `;
 
     const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            .container { max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; }
-            .header { background: #059669; color: white; padding: 20px; text-align: center; }
-            .content { padding: 30px; background: #f9fafb; }
-            .feature { padding: 15px; margin: 10px 0; background: white; border-radius: 8px; }
-            .footer { padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🎉 Email vérifié avec succès!</h1>
-            </div>
-            <div class="content">
-              <h2>Félicitations ${user.name}!</h2>
-              <p>Votre compte ${emailConfig.from.name} est maintenant activé. Vous pouvez explorer tous nos points d'intérêt et contribuer à la communauté.</p>
-              
-              <h3>Que pouvez-vous faire maintenant ?</h3>
-              
-              <div class="feature">
-                <h4>🗺️ Explorer les POI</h4>
-                <p>Découvrez tous les points d'intérêt de Yaoundé et ses environs.</p>
-              </div>
-              
-              <div class="feature">
-                <h4>❤️ Ajouter aux favoris</h4>
-                <p>Sauvegardez vos lieux préférés pour les retrouver facilement.</p>
-              </div>
-              
-              <div class="feature">
-                <h4>💬 Commenter et noter</h4>
-                <p>Partagez votre expérience et aidez la communauté.</p>
-              </div>
-              
-              <div class="feature">
-                <h4>➕ Contribuer</h4>
-                <p>Ajoutez de nouveaux points d'intérêt et enrichissez la plateforme.</p>
-              </div>
-              
-              <p style="text-align: center; margin-top: 30px;">
-                <a href="${emailConfig.baseUrl}" style="display: inline-block; background: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
-                  Commencer l'exploration
-                </a>
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          /* Mêmes styles que précédemment */
+          body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            font-family: Arial, sans-serif;
+          }
+          
+          .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+          }
+          
+          .header {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+          }
+          
+          .celebration-emoji {
+            font-size: 72px;
+            margin-bottom: 20px;
+          }
+          
+          .feature-card {
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #2563eb;
+          }
+          
+          .feature-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+          }
+          
+          .cta-button {
+            display: inline-block;
+            background: #059669;
+            color: white !important;
+            padding: 16px 40px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 30px 0;
+            box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
+          }
+          
+          .mailbox-tip {
+            background: #eff6ff;
+            border: 1px solid #dbeafe;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+            text-align: center;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="email-container">
+          <div class="header">
+            <div class="celebration-emoji">🎉</div>
+            <h1>Email vérifié avec succès!</h1>
+          </div>
+          
+          <div class="content" style="padding: 40px 30px;">
+            <h2 style="color: #1f2937; margin-bottom: 20px;">
+              Félicitations ${user.name}!
+            </h2>
+            
+            <p style="font-size: 16px; color: #6b7280; line-height: 1.6;">
+              Votre compte ${emailConfig.from.name} est maintenant activé. 
+              Vous avez accès à toutes les fonctionnalités de notre plateforme!
+            </p>
+            
+            <h3 style="margin-top: 30px; color: #1f2937;">
+              🚀 Que pouvez-vous faire maintenant ?
+            </h3>
+            
+            <div class="feature-card">
+              <div class="feature-title">🗺️ Explorer les POI</div>
+              <p style="color: #6b7280; margin: 0;">
+                Découvrez tous les points d'intérêt de Yaoundé et ses environs
               </p>
             </div>
-            <div class="footer">
-              <p>© 2025 ${emailConfig.from.name}. Tous droits réservés.</p>
+            
+            <div class="feature-card">
+              <div class="feature-title">❤️ Ajouter aux favoris</div>
+              <p style="color: #6b7280; margin: 0;">
+                Sauvegardez vos lieux préférés pour les retrouver facilement
+              </p>
             </div>
+            
+            <div class="feature-card">
+              <div class="feature-title">💬 Commenter et noter</div>
+              <p style="color: #6b7280; margin: 0;">
+                Partagez votre expérience et aidez la communauté
+              </p>
+            </div>
+            
+            <div class="feature-card">
+              <div class="feature-title">➕ Contribuer</div>
+              <p style="color: #6b7280; margin: 0;">
+                Ajoutez de nouveaux points d'intérêt et enrichissez la plateforme
+              </p>
+            </div>
+            
+            <div style="text-align: center;">
+              <a href="${emailConfig.baseUrl}" class="cta-button">
+                Commencer l'exploration
+              </a>
+            </div>
+            
+            ${mailboxUrl
+        ? `
+            <div class="mailbox-tip">
+              <p style="margin: 0 0 15px 0; color: #1e40af; font-weight: 600;">
+                💡 Astuce : Ajoutez-nous à vos contacts!
+              </p>
+              <p style="margin: 0 0 15px 0; color: #6b7280;">
+                Pour ne manquer aucune notification importante
+              </p>
+              <a href="${mailboxUrl}" 
+                 style="display: inline-block; background: ${providerInfo.color}; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;"
+                 target="_blank">
+                ${providerInfo.icon} Ouvrir ${providerInfo.name}
+              </a>
+            </div>
+            `
+        : ''
+      }
           </div>
-        </body>
-      </html>
-    `;
+          
+          <div class="footer" style="background: #f9fafb; padding: 30px; text-align: center; color: #6b7280; font-size: 14px;">
+            <p>© 2025 ${emailConfig.from.name}. Tous droits réservés.</p>
+            <p style="margin-top: 10px;">
+              Notre adresse email : ${emailConfig.from.address}
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
 
     return await this.sendEmail(user.email, subject, html, text);
   }

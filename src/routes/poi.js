@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const express = require('express');
 const POIController = require('../controllers/poiController');
 const authMiddleware = require('../middlewares/authMiddleware');

@@ -2,162 +2,158 @@ const { Server } = require('socket.io');
 const emailService = require('./emailService');
 
 class NotificationService {
-    constructor() {
-        this.io = null;
-        this.connectedUsers = new Map(); // userId -> socketId
-    }
+  constructor() {
+    this.io = null;
+    this.connectedUsers = new Map(); // userId -> socketId
+  }
 
-    // Initialiser Socket.IO
-    init(server) {
-        this.io = new Server(server, {
-            cors: {
-                origin: process.env.CLIENT_URL || "http://localhost:3000",
-                methods: ["GET", "POST"]
-            }
+  // Initialiser Socket.IO
+  init(server) {
+    this.io = new Server(server, {
+      cors: {
+        origin: process.env.CLIENT_URL || 'http://localhost:3000',
+        methods: ['GET', 'POST']
+      }
+    });
+
+    this.io.on('connection', (socket) => {
+      console.log(`📡 Nouvelle connexion Socket.IO: ${socket.id}`);
+
+      // Authentification du socket
+      socket.on('authenticate', (token) => {
+        try {
+          const AuthService = require('./authService');
+          const decoded = AuthService.verifyToken(token);
+
+          socket.userId = decoded.id;
+          socket.userRole = decoded.role;
+          this.connectedUsers.set(decoded.id, socket.id);
+
+          // Rejoindre les salles appropriées selon le rôle
+          if (['moderateur', 'admin', 'superadmin'].includes(decoded.role)) {
+            socket.join('moderators');
+          }
+
+          socket.emit('authenticated', { userId: decoded.id, role: decoded.role });
+          console.log(`✅ Socket authentifié: User ${decoded.id} (${decoded.role})`);
+        } catch (error) {
+          console.error('❌ Erreur auth socket:', error.message);
+          socket.emit('auth_error', { message: 'Token invalide' });
+        }
+      });
+
+      socket.on('disconnect', () => {
+        if (socket.userId) {
+          this.connectedUsers.delete(socket.userId);
+          console.log(`📡 Déconnexion: User ${socket.userId}`);
+        }
+      });
+    });
+
+    console.log(' Service de notifications initialisé');
+  }
+
+  // Notifier l'approbation d'un POI
+  async notifyPOIApproval(data) {
+    const { poi, moderator_id, comments } = data;
+
+    try {
+      // Notification temps réel au créateur
+      const creatorSocketId = this.connectedUsers.get(poi.created_by);
+      if (creatorSocketId) {
+        this.io.to(creatorSocketId).emit('poi:approved', {
+          type: 'poi_approved',
+          poi_id: poi.id,
+          poi_name: poi.name,
+          moderator_id,
+          comments,
+          timestamp: new Date().toISOString()
         });
+      }
 
-        this.io.on('connection', (socket) => {
-            console.log(`📡 Nouvelle connexion Socket.IO: ${socket.id}`);
+      // Notification email au créateur
+      if (poi.creator && poi.creator.email) {
+        await this.sendApprovalEmail(poi, comments);
+      }
 
-            // Authentification du socket
-            socket.on('authenticate', (token) => {
-                try {
-                    const AuthService = require('./authService');
-                    const decoded = AuthService.verifyToken(token);
+      // Notifier les autres modérateurs
+      this.io.to('moderators').emit('poi:moderated', {
+        type: 'poi_approved',
+        poi_id: poi.id,
+        poi_name: poi.name,
+        action: 'approved',
+        moderator_id,
+        timestamp: new Date().toISOString()
+      });
 
-                    socket.userId = decoded.id;
-                    socket.userRole = decoded.role;
-                    this.connectedUsers.set(decoded.id, socket.id);
+      console.log(`📧 Notifications envoyées pour approbation POI ${poi.id}`);
+    } catch (error) {
+      console.error('❌ Erreur notification approbation:', error);
+    }
+  }
 
-                    // Rejoindre les salles appropriées selon le rôle
-                    if (['moderateur', 'admin', 'superadmin'].includes(decoded.role)) {
-                        socket.join('moderators');
-                    }
+  // Notifier le rejet d'un POI
+  async notifyPOIRejection(data) {
+    const { poi, moderator_id, reason } = data;
 
-                    socket.emit('authenticated', { userId: decoded.id, role: decoded.role });
-                    console.log(`✅ Socket authentifié: User ${decoded.id} (${decoded.role})`);
-
-                } catch (error) {
-                    console.error('❌ Erreur auth socket:', error.message);
-                    socket.emit('auth_error', { message: 'Token invalide' });
-                }
-            });
-
-            socket.on('disconnect', () => {
-                if (socket.userId) {
-                    this.connectedUsers.delete(socket.userId);
-                    console.log(`📡 Déconnexion: User ${socket.userId}`);
-                }
-            });
+    try {
+      // Notification temps réel au créateur
+      const creatorSocketId = this.connectedUsers.get(poi.created_by);
+      if (creatorSocketId) {
+        this.io.to(creatorSocketId).emit('poi:rejected', {
+          type: 'poi_rejected',
+          poi_id: poi.id,
+          poi_name: poi.name,
+          moderator_id,
+          reason,
+          timestamp: new Date().toISOString()
         });
+      }
 
-        console.log(' Service de notifications initialisé');
+      // Notification email au créateur
+      if (poi.creator && poi.creator.email) {
+        await this.sendRejectionEmail(poi, reason);
+      }
+
+      // Notifier les autres modérateurs
+      this.io.to('moderators').emit('poi:moderated', {
+        type: 'poi_rejected',
+        poi_id: poi.id,
+        poi_name: poi.name,
+        action: 'rejected',
+        moderator_id,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log(`📧 Notifications envoyées pour rejet POI ${poi.id}`);
+    } catch (error) {
+      console.error('❌ Erreur notification rejet:', error);
     }
+  }
+  // Notifier la création d'un nouveau POI aux modérateurs
+  async notifyPOICreated(poi) {
+    try {
+      this.io.to('moderators').emit('poi:created', {
+        type: 'new_poi_pending',
+        poi_id: poi.id,
+        poi_name: poi.name,
+        creator_id: poi.created_by,
+        quartier: poi.Quartier?.name,
+        category: poi.Category?.name,
+        timestamp: new Date().toISOString()
+      });
 
-    // Notifier l'approbation d'un POI
-    async notifyPOIApproval(data) {
-        const { poi, moderator_id, comments } = data;
-
-        try {
-            // Notification temps réel au créateur
-            const creatorSocketId = this.connectedUsers.get(poi.created_by);
-            if (creatorSocketId) {
-                this.io.to(creatorSocketId).emit('poi:approved', {
-                    type: 'poi_approved',
-                    poi_id: poi.id,
-                    poi_name: poi.name,
-                    moderator_id,
-                    comments,
-                    timestamp: new Date().toISOString()
-                });
-            }
-
-            // Notification email au créateur
-            if (poi.creator && poi.creator.email) {
-                await this.sendApprovalEmail(poi, comments);
-            }
-
-            // Notifier les autres modérateurs
-            this.io.to('moderators').emit('poi:moderated', {
-                type: 'poi_approved',
-                poi_id: poi.id,
-                poi_name: poi.name,
-                action: 'approved',
-                moderator_id,
-                timestamp: new Date().toISOString()
-            });
-
-            console.log(`📧 Notifications envoyées pour approbation POI ${poi.id}`);
-
-        } catch (error) {
-            console.error('❌ Erreur notification approbation:', error);
-        }
+      console.log(`📧 Modérateurs notifiés pour nouveau POI ${poi.id}`);
+    } catch (error) {
+      console.error('❌ Erreur notification création POI:', error);
     }
+  }
 
-    // Notifier le rejet d'un POI
-    async notifyPOIRejection(data) {
-        const { poi, moderator_id, reason } = data;
+  // Email d'approbation
+  async sendApprovalEmail(poi, comments) {
+    const subject = `✅ Votre POI "${poi.name}" a été approuvé !`;
 
-        try {
-            // Notification temps réel au créateur
-            const creatorSocketId = this.connectedUsers.get(poi.created_by);
-            if (creatorSocketId) {
-                this.io.to(creatorSocketId).emit('poi:rejected', {
-                    type: 'poi_rejected',
-                    poi_id: poi.id,
-                    poi_name: poi.name,
-                    moderator_id,
-                    reason,
-                    timestamp: new Date().toISOString()
-                });
-            }
-
-            // Notification email au créateur
-            if (poi.creator && poi.creator.email) {
-                await this.sendRejectionEmail(poi, reason);
-            }
-
-            // Notifier les autres modérateurs
-            this.io.to('moderators').emit('poi:moderated', {
-                type: 'poi_rejected',
-                poi_id: poi.id,
-                poi_name: poi.name,
-                action: 'rejected',
-                moderator_id,
-                timestamp: new Date().toISOString()
-            });
-
-            console.log(`📧 Notifications envoyées pour rejet POI ${poi.id}`);
-
-        } catch (error) {
-            console.error('❌ Erreur notification rejet:', error);
-        }
-    }
-    // Notifier la création d'un nouveau POI aux modérateurs
-    async notifyPOICreated(poi) {
-        try {
-            this.io.to('moderators').emit('poi:created', {
-                type: 'new_poi_pending',
-                poi_id: poi.id,
-                poi_name: poi.name,
-                creator_id: poi.created_by,
-                quartier: poi.Quartier?.name,
-                category: poi.Category?.name,
-                timestamp: new Date().toISOString()
-            });
-
-            console.log(`📧 Modérateurs notifiés pour nouveau POI ${poi.id}`);
-
-        } catch (error) {
-            console.error('❌ Erreur notification création POI:', error);
-        }
-    }
-
-    // Email d'approbation
-    async sendApprovalEmail(poi, comments) {
-        const subject = `✅ Votre POI "${poi.name}" a été approuvé !`;
-
-        const html = `
+    const html = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -195,14 +191,14 @@ class NotificationService {
         </body>
         </html>`;
 
-        return await emailService.sendEmail(poi.creator.email, subject, html);
-    }
+    return await emailService.sendEmail(poi.creator.email, subject, html);
+  }
 
-    // Email de rejet
-    async sendRejectionEmail(poi, reason) {
-        const subject = `❌ Votre POI "${poi.name}" nécessite des modifications`;
+  // Email de rejet
+  async sendRejectionEmail(poi, reason) {
+    const subject = `❌ Votre POI "${poi.name}" nécessite des modifications`;
 
-        const html = `
+    const html = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -244,86 +240,83 @@ class NotificationService {
         </body>
         </html>`;
 
-        return await emailService.sendEmail(poi.creator.email, subject, html);
+    return await emailService.sendEmail(poi.creator.email, subject, html);
+  }
+
+  async notifyCommentAdded(comment, poi) {
+    try {
+      // Notification temps réel au propriétaire du POI
+      const ownerSocketId = this.connectedUsers.get(poi.created_by);
+      if (ownerSocketId) {
+        this.io.to(ownerSocketId).emit('comment:added', {
+          type: 'comment_added',
+          comment_id: comment.id,
+          poi_id: poi.id,
+          poi_name: poi.name,
+          author_name: comment.author.name,
+          content: comment.content.substring(0, 100) + '...',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Email au propriétaire du POI
+      if (poi.creator && poi.creator.email) {
+        await this.sendCommentNotificationEmail(comment, poi);
+      }
+    } catch (error) {
+      console.error('❌ Erreur notification commentaire:', error);
     }
+  }
 
-    async notifyCommentAdded(comment, poi) {
-        try {
-            // Notification temps réel au propriétaire du POI
-            const ownerSocketId = this.connectedUsers.get(poi.created_by);
-            if (ownerSocketId) {
-                this.io.to(ownerSocketId).emit('comment:added', {
-                    type: 'comment_added',
-                    comment_id: comment.id,
-                    poi_id: poi.id,
-                    poi_name: poi.name,
-                    author_name: comment.author.name,
-                    content: comment.content.substring(0, 100) + '...',
-                    timestamp: new Date().toISOString()
-                });
-            }
+  // Notifier qu'on a répondu à un commentaire
+  async notifyCommentReply(reply, parentComment) {
+    try {
+      // Notification temps réel à l'auteur du commentaire parent
+      const authorSocketId = this.connectedUsers.get(parentComment.user_id);
+      if (authorSocketId) {
+        this.io.to(authorSocketId).emit('comment:reply', {
+          type: 'comment_reply',
+          reply_id: reply.id,
+          parent_comment_id: parentComment.id,
+          author_name: reply.author.name,
+          content: reply.content.substring(0, 100) + '...',
+          timestamp: new Date().toISOString()
+        });
+      }
 
-            // Email au propriétaire du POI
-            if (poi.creator && poi.creator.email) {
-                await this.sendCommentNotificationEmail(comment, poi);
-            }
-
-        } catch (error) {
-            console.error('❌ Erreur notification commentaire:', error);
-        }
+      // Email à l'auteur du commentaire parent
+      if (parentComment.author && parentComment.author.email) {
+        await this.sendCommentReplyEmail(reply, parentComment);
+      }
+    } catch (error) {
+      console.error('❌ Erreur notification réponse:', error);
     }
+  }
 
-    // Notifier qu'on a répondu à un commentaire
-    async notifyCommentReply(reply, parentComment) {
-        try {
-            // Notification temps réel à l'auteur du commentaire parent
-            const authorSocketId = this.connectedUsers.get(parentComment.user_id);
-            if (authorSocketId) {
-                this.io.to(authorSocketId).emit('comment:reply', {
-                    type: 'comment_reply',
-                    reply_id: reply.id,
-                    parent_comment_id: parentComment.id,
-                    author_name: reply.author.name,
-                    content: reply.content.substring(0, 100) + '...',
-                    timestamp: new Date().toISOString()
-                });
-            }
+  // Notifier les modérateurs d'un commentaire signalé
+  async notifyCommentReported(comment, report) {
+    try {
+      this.io.to('moderators').emit('comment:reported', {
+        type: 'comment_reported',
+        comment_id: comment.id,
+        report_id: report.id,
+        reason: report.reason,
+        reports_count: comment.reports_count,
+        content: comment.content.substring(0, 100) + '...',
+        timestamp: new Date().toISOString()
+      });
 
-            // Email à l'auteur du commentaire parent
-            if (parentComment.author && parentComment.author.email) {
-                await this.sendCommentReplyEmail(reply, parentComment);
-            }
-
-        } catch (error) {
-            console.error('❌ Erreur notification réponse:', error);
-        }
+      console.log(`📧 Modérateurs notifiés pour signalement commentaire ${comment.id}`);
+    } catch (error) {
+      console.error('❌ Erreur notification signalement:', error);
     }
+  }
 
-    // Notifier les modérateurs d'un commentaire signalé
-    async notifyCommentReported(comment, report) {
-        try {
-            this.io.to('moderators').emit('comment:reported', {
-                type: 'comment_reported',
-                comment_id: comment.id,
-                report_id: report.id,
-                reason: report.reason,
-                reports_count: comment.reports_count,
-                content: comment.content.substring(0, 100) + '...',
-                timestamp: new Date().toISOString()
-            });
+  // Emails pour commentaires
+  async sendCommentNotificationEmail(comment, poi) {
+    const subject = `💬 Nouveau commentaire sur votre POI "${poi.name}"`;
 
-            console.log(`📧 Modérateurs notifiés pour signalement commentaire ${comment.id}`);
-
-        } catch (error) {
-            console.error('❌ Erreur notification signalement:', error);
-        }
-    }
-
-    // Emails pour commentaires
-    async sendCommentNotificationEmail(comment, poi) {
-        const subject = `💬 Nouveau commentaire sur votre POI "${poi.name}"`;
-
-        const html = `
+    const html = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -360,13 +353,13 @@ class NotificationService {
     </body>
     </html>`;
 
-        return await emailService.sendEmail(poi.creator.email, subject, html);
-    }
+    return await emailService.sendEmail(poi.creator.email, subject, html);
+  }
 
-    async sendCommentReplyEmail(reply, parentComment) {
-        const subject = `↩️ Réponse à votre commentaire`;
+  async sendCommentReplyEmail(reply, parentComment) {
+    const subject = `↩️ Réponse à votre commentaire`;
 
-        const html = `
+    const html = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -410,8 +403,8 @@ class NotificationService {
     </body>
     </html>`;
 
-        return await emailService.sendEmail(parentComment.author.email, subject, html);
-    }
+    return await emailService.sendEmail(parentComment.author.email, subject, html);
+  }
 }
 
 // Instance singleton

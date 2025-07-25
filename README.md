@@ -436,10 +436,8 @@ npm run test:all
 - Application mobile avec React Native
 - Système de recommandations basé sur l'IA
 
-### Extensions long terme
-- Support multilingue (français, anglais, langues locales)
-- Extension géographique (autres villes du Cameroun)
-- Marketplace pour services locaux
+### Extensions
+- Support multilingue (français, anglais)
 - Intégration paiements mobiles (Mobile Money)
 - API publique pour développeurs tiers
 

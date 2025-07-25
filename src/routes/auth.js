@@ -7,35 +7,25 @@ const authValidator = require('../validators/authValidator');
 const router = express.Router();
 
 // Routes publiques
-router.post('/register',
-    validationMiddleware(authValidator.register),
-    AuthController.register
+router.post('/register', validationMiddleware(authValidator.register), AuthController.register);
+
+router.post('/login', validationMiddleware(authValidator.login), AuthController.login);
+
+router.get(
+  '/verify-email',
+  validationMiddleware(authValidator.verifyEmail, 'query'),
+  AuthController.verifyEmail
 );
 
-router.post('/login',
-    validationMiddleware(authValidator.login),
-    AuthController.login
-);
-
-router.get('/verify-email',
-    validationMiddleware(authValidator.verifyEmail, 'query'),
-    AuthController.verifyEmail
-);
-
-router.post('/resend-verification',
-    validationMiddleware(authValidator.resendVerification),
-    AuthController.resendVerification
+router.post(
+  '/resend-verification',
+  validationMiddleware(authValidator.resendVerification),
+  AuthController.resendVerification
 );
 
 // Routes protégées
-router.get('/me',
-    authMiddleware,
-    AuthController.getProfile
-);
+router.get('/me', authMiddleware, AuthController.getProfile);
 
-router.post('/logout',
-    authMiddleware,
-    AuthController.logout
-);
+router.post('/logout', authMiddleware, AuthController.logout);
 
 module.exports = router;
