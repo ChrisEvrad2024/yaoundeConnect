@@ -9,30 +9,30 @@ const router = express.Router();
 
 // GET /api/osm/geocode - Géocoder une adresse
 router.get(
-    '/geocode',
-    validationMiddleware(osmValidator.geocode, 'query'),
-    OSMController.geocodeAddress
+  '/geocode',
+  validationMiddleware(osmValidator.geocode, 'query'),
+  OSMController.geocodeAddress
 );
 
 // GET /api/osm/reverse - Géocodage inverse
 router.get(
-    '/reverse',
-    validationMiddleware(osmValidator.reverse, 'query'),
-    OSMController.reverseGeocode
+  '/reverse',
+  validationMiddleware(osmValidator.reverse, 'query'),
+  OSMController.reverseGeocode
 );
 
 // POST /api/osm/validate - Valider une adresse
 router.post(
-    '/validate',
-    validationMiddleware(osmValidator.validate),
-    OSMController.validateAddress
+  '/validate',
+  validationMiddleware(osmValidator.validate),
+  OSMController.validateAddress
 );
 
 // GET /api/osm/nearby - POI OSM à proximité
 router.get(
-    '/nearby',
-    validationMiddleware(osmValidator.nearby, 'query'),
-    OSMController.findNearbyOSMPOIs
+  '/nearby',
+  validationMiddleware(osmValidator.nearby, 'query'),
+  OSMController.findNearbyOSMPOIs
 );
 
 module.exports = router;

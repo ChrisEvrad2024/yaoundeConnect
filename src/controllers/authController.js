@@ -5,7 +5,7 @@ class AuthController {
   // POST /api/auth/register - Inscription utilisateur
   static async register(req, res) {
     try {
-      const { name, email, password, role } = req.body; // Extraire d'abord
+      const { name, email, password, role } = req.body;
       const { user, emailVerificationToken } = await AuthService.registerUser({
         name,
         email,

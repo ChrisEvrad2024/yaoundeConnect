@@ -1,0 +1,408 @@
+# ====================================================================
+# 🔐 TESTS AUTHENTIFICATION yaoundeConnect
+# ====================================================================
+# Fichier de test complet pour l'authentification
+# Utilisez avec VS Code REST Client extension ou Postman
+
+# Variables globales
+@baseUrl = http://localhost:9999
+@superAdminEmail = chrisomgba04@gmail.com
+@superAdminPassword = passWord123!
+
+# Token sera mis à jour après connexion
+@token =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MzUsImVtYWlsIjoiY2hyaXNvbWdiYTA0QGdtYWlsLmNvbSIsInJvbGUiOiJjb2xsZWN0ZXVyIiwiaWF0IjoxNzUzNTY3MDcxLCJleHAiOjE3NTQxNzE4NzF9.ECghd3ULqhhBfyjgyyO2hIV6JhYzwQXhpxQCUtEA_DI
+
+# ====================================================================
+# 🏥 1. SANTÉ DU SERVEUR
+# ====================================================================
+
+### Test de connectivité de base
+GET {{baseUrl}}/health
+
+### Test route racine
+GET {{baseUrl}}/
+
+# ====================================================================
+# 👑 2. CONNEXION SUPER ADMIN
+# ====================================================================
+
+### Connexion Super Admin (créé précédemment)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "chrisomgba04@gmail.com",
+  "password": "MariePassword123!"
+}
+
+### Connexion avec le super admin de test
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@gmail.com",
+  "password": "passWord123!"
+}
+
+# ====================================================================
+# 📝 3. INSCRIPTION NOUVEAUX UTILISATEURS
+# ====================================================================
+
+### Inscription Utilisateur Membre
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Jean Dupont",
+  "email": "jean.dupont.test@gmail.com",
+  "password": "JeanPassword123!",
+  "role": "membre"
+}
+
+### Inscription Collecteur
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Marie Collecteur",
+  "email": "chrisomgba04@gmail.com",
+  "password": "MariePassword123!",
+  "role": "collecteur"
+}
+
+### Inscription Modérateur
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Paul Moderateur",
+  "email": "paul.moderateur.test@gmail.com",
+  "password": "PaulPassword123!",
+  "role": "moderateur"
+}
+
+### Inscription Admin
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Sophie Admin",
+  "email": "sophie.admin.test@gmail.com",
+  "password": "SophiePassword123!",
+  "role": "admin"
+}
+
+# ====================================================================
+# 📧 4. VÉRIFICATION EMAIL
+# ====================================================================
+
+### Vérification email (remplacez TOKEN_DE_VERIFICATION par le token reçu)
+GET {{baseUrl}}/api/auth/verify-email?token=TOKEN_DE_VERIFICATION
+
+### Renvoyer email de vérification
+POST {{baseUrl}}/api/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "jean.dupont.test@gmail.com"
+}
+
+# ====================================================================
+# 🔐 5. TESTS DE CONNEXION
+# ====================================================================
+
+### Tentative connexion AVANT vérification email (doit échouer)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jean.dupont.test@gmail.com",
+  "password": "JeanPassword123!"
+}
+
+### Connexion APRÈS vérification email (doit réussir)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jean.dupont.test@gmail.com",
+  "password": "JeanPassword123!"
+}
+
+### Test connexion avec mauvais mot de passe
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jean.dupont.test@gmail.com",
+  "password": "MauvaisMotDePasse"
+}
+
+### Test connexion avec email inexistant
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "inexistant@gmail.com",
+  "password": "Password123!"
+}
+
+# ====================================================================
+# 🔒 6. ROUTES PROTÉGÉES (Besoin d'un token valide)
+# ====================================================================
+# Copiez le token depuis une réponse de connexion réussie
+
+### Récupérer profil utilisateur connecté
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### Test accès sans token (doit échouer)
+GET {{baseUrl}}/api/auth/me
+
+### Test accès avec token invalide (doit échouer)
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer invalid-token-example
+
+### Test déconnexion
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{token}}
+
+# ====================================================================
+# 🧪 7. TESTS DE VALIDATION
+# ====================================================================
+
+### Inscription avec données invalides - Email manquant
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "password": "Password123!"
+}
+
+### Inscription avec email invalide
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "email-invalide",
+  "password": "Password123!"
+}
+
+### Inscription avec mot de passe trop court
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "test.user@gmail.com",
+  "password": "123"
+}
+
+### Inscription avec rôle invalide
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "test.user@gmail.com",
+  "password": "Password123!",
+  "role": "role_inexistant"
+}
+
+### Tentative double inscription (même email)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Doublon User",
+  "email": "jean.dupont.test@gmail.com",
+  "password": "Password123!"
+}
+
+# ====================================================================
+# 🎯 8. TESTS DE RÔLES ET PERMISSIONS
+# ====================================================================
+
+### Connexion avec différents rôles pour tester les permissions
+
+### Membre
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jean.dupont.test@gmail.com",
+  "password": "JeanPassword123!"
+}
+
+### Collecteur
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "marie.collecteur.test@gmail.com",
+  "password": "MariePassword123!"
+}
+
+### Modérateur
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "paul.moderateur.test@gmail.com",
+  "password": "PaulPassword123!"
+}
+
+### Admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "sophie.admin.test@gmail.com",
+  "password": "SophiePassword123!"
+}
+
+### Super Admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{superAdminEmail}}",
+  "password": "{{superAdminPassword}}"
+}
+
+# ====================================================================
+# 🔍 9. TESTS D'ERREURS ET CAS LIMITES
+# ====================================================================
+
+### Vérification avec token expiré/invalide
+GET {{baseUrl}}/api/auth/verify-email?token=token-invalide-ou-expire
+
+### Renvoyer vérification pour email inexistant
+POST {{baseUrl}}/api/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "inexistant@gmail.com"
+}
+
+### Renvoyer vérification pour email déjà vérifié
+POST {{baseUrl}}/api/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "{{superAdminEmail}}"
+}
+
+# ====================================================================
+# 🚀 10. TESTS DE PERFORMANCE ET SÉCURITÉ
+# ====================================================================
+
+### Test de multiples tentatives de connexion (rate limiting)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@gmail.com",
+  "password": "mauvais-password"
+}
+
+### Test injection SQL basique (doit être bloquée)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin'; DROP TABLE users; --",
+  "password": "password"
+}
+
+### Test XSS basique (doit être échappé)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "<script>alert('XSS')</script>",
+  "email": "xss.test@gmail.com",
+  "password": "Password123!"
+}
+
+# ====================================================================
+# 📊 11. TESTS DE MONITORING
+# ====================================================================
+
+### Test endpoints de monitoring/stats (si disponibles)
+GET {{baseUrl}}/api/stats
+Authorization: Bearer {{token}}
+
+### Test logs système (super admin uniquement)
+GET {{baseUrl}}/api/admin/logs
+Authorization: Bearer {{token}}
+
+# ====================================================================
+# 🔄 12. WORKFLOW COMPLET TYPE
+# ====================================================================
+
+### WORKFLOW STANDARD : Inscription -> Vérification -> Connexion
+
+### Étape 1 : Inscription nouveau utilisateur
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Workflow Test User",
+  "email": "workflow.test@gmail.com",
+  "password": "WorkflowPassword123!",
+  "role": "membre"
+}
+
+### Étape 2 : Vérification email (remplacez le token)
+# GET {{baseUrl}}/api/auth/verify-email?token=VOTRE_TOKEN_ICI
+
+### Étape 3 : Connexion après vérification
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "workflow.test@gmail.com",
+  "password": "WorkflowPassword123!"
+}
+
+### Étape 4 : Accès au profil
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### Étape 5 : Déconnexion
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{token}}
+
+# ====================================================================
+# 📝 NOTES IMPORTANTES
+# ====================================================================
+#
+# 1. 🔑 TOKEN MANAGEMENT:
+#    - Copiez le token depuis les réponses de connexion
+#    - Remplacez {{token}} par le token réel
+#    - Les tokens expirent après 7 jours par défaut
+#
+# 2. 📧 EMAIL VERIFICATION:
+#    - En développement, les tokens sont visibles dans les réponses
+#    - Remplacez TOKEN_DE_VERIFICATION par le token reçu
+#    - Les tokens de vérification expirent après 24h
+#
+# 3. 🧪 ENVIRONNEMENT DE TEST:
+#    - Assurez-vous que le serveur tourne sur localhost:9999
+#    - Base de données configurée et accessible
+#    - Service email configuré (mode dev accepté)
+#
+# 4. 🔒 SÉCURITÉ:
+#    - Ne committez jamais de vrais tokens
+#    - Utilisez des emails de test uniquement
+#    - Changez les mots de passe en production
+#
+# 5. ⚡ UTILISATION:
+#    - Installez REST Client extension dans VS Code
+#    - Ou importez dans Postman/Insomnia
+#    - Exécutez les requêtes dans l'ordre pour le workflow complet
+#
+# ====================================================================

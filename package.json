@@ -24,7 +24,11 @@
     "test:sprint3": "node src/utils/testSprint3.js",
     "test:sprint3-endpoints": "node src/utils/testSprint3Endpoints.js",
     "test:comments": "echo 'Testing comments system...' && node src/utils/testSprint3.js",
-    "test:ratings": "echo 'Testing ratings system...' && node src/utils/testSprint3.js"
+    "test:ratings": "echo 'Testing ratings system...' && node src/utils/testSprint3.js",
+    "create:superadmin": "node src/utils/createSuperAdmin.js",
+    "setup:admin": "npm run create:superadmin",
+    "test:email": "node src/utils/testEmailService.js",
+    "test:auth-flow": "node src/utils/testAuthFlow.js"  
   },
   "keywords": [],
   "author": "",

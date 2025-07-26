@@ -73,9 +73,6 @@ GET {{baseUrl}}/api/poi?limit=10&page=1
 ### Rechercher POI par nom
 GET {{baseUrl}}/api/poi?q=Restaurant&limit=5
 
-### Détails d'un POI spécifique (remplacez par un vrai ID)
-GET {{baseUrl}}/api/poi/{{poiId}}
-
 ### Géocoder une adresse de Yaoundé
 GET {{baseUrl}}/api/osm/geocode?address=Avenue Kennedy&city=Yaoundé&country=Cameroun
 
@@ -90,9 +87,8 @@ Content-Type: application/json
 }
 
 ################################################ CREATION USERS
-POST http://localhost:9999/api/auth/login
+POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
-
 {
   "email": "omgbaomgba79@gmail.com",
   "password": "OMGBa123!"
@@ -102,7 +98,7 @@ POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
 {
-  "name": "Mme 2",
+  "name": "Chris Evrad",
   "email": "chrisomgba04@gmail.com",
   "password": "Solange123!",
   "role": "moderateur"
