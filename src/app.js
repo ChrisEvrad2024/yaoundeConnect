@@ -61,6 +61,8 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/poi', require('./routes/poi'));
 app.use('/api/moderation', require('./routes/approval'));
+app.use('/api/quartiers', require('./routes/quartiers'));
+app.use('/api/categories', require('./routes/categories'));
 // Route 404 - VERSION CORRIGÉE
 app.all('*', (req, res) => {
   res.status(404).json({

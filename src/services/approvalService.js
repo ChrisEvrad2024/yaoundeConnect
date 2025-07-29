@@ -1,48 +1,78 @@
-const { PointInterest, User, AuditLog } = require('../models');
+const { PointInterest, User, AuditLog, Category, Quartier } = require('../models');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
 
 class ApprovalService {
   // Approuver un POI
   static async approvePOI(poiId, moderatorId, comments = null) {
+    console.log(`🔧 Début approbation POI ${poiId} par modérateur ${moderatorId}`);
+
     const transaction = await sequelize.transaction();
 
     try {
-      // Vérifier que le POI existe et est en attente
+      // ✅ ÉTAPE 1: Récupération POI avec relations complètes
+      console.log(`🔄 Récupération POI avec relations...`);
       const poi = await PointInterest.findByPk(poiId, {
-        include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }],
+        include: [
+          {
+            model: User,
+            as: 'creator',
+            attributes: ['id', 'name', 'email', 'role']
+          },
+          {
+            model: Category,
+            attributes: ['id', 'name']
+          },
+          {
+            model: Quartier,
+            attributes: ['id', 'name']
+          }
+        ],
         transaction
       });
 
       if (!poi) {
-        throw new Error('POI non trouvé');
+        await transaction.rollback();
+        throw new Error(`POI avec l'ID ${poiId} non trouvé`);
       }
 
+      console.log(`✅ POI trouvé: ${poi.name}`);
+      console.log(`   Status actuel: ${poi.status}`);
+      console.log(`   Créateur: ${poi.creator ? poi.creator.name : 'Non trouvé'}`);
+
+      // ✅ ÉTAPE 2: Validations
       if (poi.status === 'approved') {
+        await transaction.rollback();
         throw new Error('Ce POI est déjà approuvé');
       }
 
       if (poi.status === 'rejected') {
-        throw new Error('Ce POI a été rejeté. Utilisez la réapprobation si nécessaire');
+        console.log(`⚠️  POI était rejeté, passage en approuvé`);
       }
 
-      // Sauvegarder l'ancien statut pour l'audit
+      // ✅ ÉTAPE 3: Sauvegarde ancien statut pour audit
       const oldValues = {
         status: poi.status,
-        approved_by: poi.approved_by
+        approved_by: poi.approved_by,
+        is_verify: poi.is_verify
       };
 
-      // Mettre à jour le POI
+      // ✅ ÉTAPE 4: Mise à jour POI
+      console.log(`🔄 Mise à jour statut POI...`);
       await poi.update(
         {
           status: 'approved',
           approved_by: moderatorId,
-          is_verify: 1 // Marquer comme vérifié
+          is_verify: 1
         },
         { transaction }
       );
 
-      // Créer l'entrée d'audit
+      console.log(`✅ POI mis à jour avec succès`);
+
+      // ✅ ÉTAPE 5: Audit log
+      console.log(`🔄 Création log d'audit...`);
+      const AuditLog = require('../models').AuditLog;
       await AuditLog.create(
         {
           table_name: 'point_interests',
@@ -60,17 +90,26 @@ class ApprovalService {
         { transaction }
       );
 
-      await transaction.commit();
+      console.log(`✅ Log d'audit créé`);
 
-      // Retourner les données pour notification
-      return {
+      // ✅ ÉTAPE 6: Commit transaction
+      await transaction.commit();
+      console.log(`✅ Transaction committée avec succès`);
+
+      // ✅ ÉTAPE 7: Préparer données pour notification
+      const result = {
         poi: poi.toJSON(),
         moderator_id: moderatorId,
         action: 'approved',
         comments
       };
+
+      console.log(`✅ Approbation POI ${poiId} terminée avec succès`);
+      return result;
     } catch (error) {
+      console.error(`❌ Erreur dans approvePOI:`, error);
       await transaction.rollback();
+      console.log(`🔄 Transaction annulée`);
       throw error;
     }
   }

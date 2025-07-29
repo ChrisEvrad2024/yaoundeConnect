@@ -28,7 +28,10 @@
     "create:superadmin": "node src/utils/createSuperAdmin.js",
     "setup:admin": "npm run create:superadmin",
     "test:email": "node src/utils/testEmailService.js",
-    "test:auth-flow": "node src/utils/testAuthFlow.js"  
+    "test:auth-flow": "node src/utils/testAuthFlow.js",
+    "diagnostic:superadmin": "node src/utils/createSuperAdmin.js --diagnostic",
+    "cleanup:superadmin": "node src/utils/createSuperAdmin.js --cleanup",
+    "test:superadmin": "node -e \"require('./src/utils/createSuperAdmin').runDiagnostics().then(() => process.exit(0)).catch(e => { console.error(e.message); process.exit(1); })\""
   },
   "keywords": [],
   "author": "",

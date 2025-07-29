@@ -62,7 +62,6 @@ module.exports = (sequelize) => {
     User.hasMany(models.Favorite, { foreignKey: 'user_id' });
     User.hasMany(models.AuditLog, { foreignKey: 'user_id' });
 
-    // Relation many-to-many avec POI via favoris
     User.belongsToMany(models.PointInterest, {
       through: models.Favorite,
       foreignKey: 'user_id',

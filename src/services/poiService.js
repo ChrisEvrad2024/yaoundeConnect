@@ -8,11 +8,11 @@ const OSMService = require('./osmService');
 const PaginationService = require('./paginationService');
 
 class POIService {
-  // Créer un nouveau POI
   static async createPOI(data, userId, imageFiles = []) {
     try {
-      console.log('🔧 Début création POI, userId:', userId);
-      console.log('📋 Données reçues:', data);
+      console.log(' Début création POI, userId:', userId);
+      console.log(' Données reçues:', data);
+      console.log(' Fichiers image:', imageFiles);
 
       // Valider les coordonnées
       const coordValidation = GeoService.validateCoordinates(data.latitude, data.longitude);
@@ -39,13 +39,31 @@ class POIService {
         console.warn(`POI créé hors de Yaoundé: ${data.latitude}, ${data.longitude}`);
       }
 
+      // ✅ CORRECTION: Déterminer le statut selon le rôle de l'utilisateur
+      let initialStatus = 'pending'; // Par défaut, en attente d'approbation
+
+      // Récupérer l'utilisateur pour vérifier son rôle
+      const user = await User.findByPk(userId);
+      if (!user) {
+        throw new Error('Utilisateur non trouvé');
+      }
+
+      // ✅ Les modérateurs, admins et superadmins peuvent auto-approuver
+      if (['moderateur', 'admin', 'superadmin'].includes(user.role)) {
+        initialStatus = 'approved';
+        console.log(`✅ Auto-approbation pour rôle: ${user.role}`);
+      } else {
+        console.log(`⏳ POI en attente d'approbation pour rôle: ${user.role}`);
+      }
+
       // Préparer les données du POI
       const poiData = {
         ...data,
         user_id: userId,
         created_by: userId,
-        status: 'approved', // Utiliser string au lieu de 1
-        is_verify: 0,
+        status: initialStatus, // ✅ CORRECTION: Status selon le rôle
+        is_verify: initialStatus === 'approved' ? 1 : 0, // ✅ Cohérent avec le status
+        approved_by: initialStatus === 'approved' ? userId : null, // ✅ Auto-approbation si applicable
         langue: 'fr'
       };
 
@@ -53,7 +71,19 @@ class POIService {
 
       // Créer le POI
       const poi = await PointInterest.create(poiData);
-      console.log('✅ POI créé avec ID:', poi.id);
+      console.log(`✅ POI créé avec ID: ${poi.id}, Status: ${poi.status}`);
+
+      // ✅ Notifier les modérateurs si POI en attente
+      if (poi.status === 'pending') {
+        try {
+          const notificationService = require('./notificationService');
+          await notificationService.notifyPOICreated(poi);
+          console.log('📧 Modérateurs notifiés du nouveau POI en attente');
+        } catch (notifError) {
+          console.error('Erreur notification modérateurs:', notifError.message);
+          // Ne pas faire échouer la création pour une erreur de notification
+        }
+      }
 
       // Traiter les images si fournies
       if (imageFiles && imageFiles.length > 0) {
@@ -73,7 +103,7 @@ class POIService {
       // Retourner le POI avec ses relations
       return await this.getPOIById(poi.id);
     } catch (error) {
-      console.error('❌ Erreur création POI dans service:', error);
+      console.error(' Erreur création POI dans service:', error);
       throw error;
     }
   }

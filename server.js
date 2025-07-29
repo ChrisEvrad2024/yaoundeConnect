@@ -1,6 +1,8 @@
 const app = require('./src/app');
 const { testConnection } = require('./src/config/database');
 const notificationService = require('./src/services/notificationService');
+const socketService = require('./src/services/socketService');
+
 const http = require('http');
 
 const PORT = process.env.PORT || 3000;
@@ -13,6 +15,7 @@ const startServer = async () => {
 
     // Créer le serveur HTTP
     const server = http.createServer(app);
+    socketService.init(server);
 
     // Initialiser les notifications Socket.IO
     notificationService.init(server);

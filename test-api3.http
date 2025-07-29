@@ -1,0 +1,320 @@
+# ====================================================================
+# 🧪 TEST COMPLET: WORKFLOW POI avec APPROBATION
+# ====================================================================
+# Test du workflow complet : Inscription → Création POI → Approbation
+# Utilisez avec VS Code REST Client extension ou Postman
+
+# Variables globales
+@baseUrl = http://localhost:9999
+@superAdminEmail = chrisomgba04@gmail.com
+@superAdminPassword = passWord123!
+
+# Tokens à mettre à jour après chaque connexion
+@adminToken =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MzcsImVtYWlsIjoiY2hyaXNvbWdiYTA0QGdtYWlsLmNvbSIsInJvbGUiOiJzdXBlcmFkbWluIiwiaWF0IjoxNzUzNjUzNjkwLCJleHAiOjE3NTQyNTg0OTB9.v4hSiHLlNEuDrqMgYBVZTfOdjBRA5ZGyfVyT7sUZkIE
+@collecteurToken =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MzgsImVtYWlsIjoiaG90ZWxkZXZpbGxlMDVAZ21haWwuY29tIiwicm9sZSI6ImNvbGxlY3RldXIiLCJpYXQiOjE3NTM2NTA0NDYsImV4cCI6MTc1NDI1NTI0Nn0.8Bve56dXFvFzncdnQqNzUcMiDaSOzIHet4jWefWiIHo
+@poiId =40
+
+# ====================================================================
+# 🏥 1. VÉRIFICATIONS INITIALES
+# ====================================================================
+
+### 1.1 Test de connectivité
+GET {{baseUrl}}/health
+
+### 1.2 Test route racine
+GET {{baseUrl}}/
+
+### 1.3 Vérifier que l'API fonctionne
+GET {{baseUrl}}/api/auth/me
+# Cette requête doit échouer sans token (normal)
+
+# ====================================================================
+# 👑 2. CONNEXION ADMINISTRATEUR (pour validation finale)
+# ====================================================================
+
+### 2.1 Connexion Super Admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "chrisomgba04@gmail.com",
+  "password": "passWord123!"
+}
+
+# 📝 COPIEZ LE TOKEN DE LA RÉPONSE CI-DESSUS DANS @adminToken
+
+### 2.2 Vérifier le profil admin (optionnel)
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{adminToken}}
+
+# ====================================================================
+# 📝 3. CRÉATION UTILISATEUR COLLECTEUR
+# ====================================================================
+
+### 3.1 Inscription nouveau collecteur
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "TestTest",
+  "email": "hoteldeville05@gmail.com",
+  "password": "CollecteurTest123!",
+  "role": "collecteur"
+}
+
+### 2.1 Connexion Super Admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "hoteldeville05@gmail.com",
+  "password": "CollecteurTest123!"
+}
+
+### 3.2 Vérification email (SIMULÉ - copiez le token depuis la réponse d'inscription)
+# GET {{baseUrl}}/api/auth/verify-email?token=COPIEZ_LE_TOKEN_ICI
+
+# ⚠️ IMPORTANT: Copiez le dev_verification_token de la réponse ci-dessus
+# et remplacez TOKEN_DE_VERIFICATION dans la ligne suivante
+GET {{baseUrl}}/api/auth/verify-email?token=TOKEN_DE_VERIFICATION
+
+# ====================================================================
+# 🔐 4. CONNEXION COLLECTEUR
+# ====================================================================
+
+### 4.1 Connexion du collecteur (après vérification email)
+POST {{baseUrl}}/api/auth/logout
+Content-Type: application/json
+
+{
+  "email": "hoteldeville05@gmail.com",
+  "password": "CollecteurTest123!"
+}
+
+# 📝 COPIEZ LE TOKEN DE LA RÉPONSE CI-DESSUS DANS @collecteurToken
+
+### 4.2 Vérifier le profil collecteur
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{collecteurToken}}
+
+# ====================================================================
+# 🏗️ 5. CRÉATION POI PAR LE COLLECTEUR
+# ====================================================================
+
+### 5.1 Créer un POI (devrait être en statut "pending")
+POST {{baseUrl}}/api/poi
+Authorization: Bearer {{collecteurToken}}
+Content-Type: application/json
+
+{
+  "name": "Le privilege",
+  "description": "Creation du POI le privilege",
+  "adress": "Odza Commissariat, Yaoundé",
+  "latitude": 3.9480,
+  "longitude": 11.6521,
+  "quartier_id": 22,
+  "category_id": 1,
+  "is_restaurant": 1,
+  "is_booking": 0,
+  "is_transport": 1,
+  "is_stadium": 0
+}
+
+# 📝 COPIEZ L'ID DU POI DE LA RÉPONSE CI-DESSUS DANS @poiId
+### 5.2 Vérifier le POI créé (détails complets)
+GET {{baseUrl}}/api/poi/{{poiId}}
+Authorization: Bearer {{collecteurToken}}
+
+### 5.3 Rechercher le POI dans la liste publique (ne devrait PAS apparaître)
+GET {{baseUrl}}/api/poi?q=Maison des secrets
+
+# ====================================================================
+# 🔍 6. VÉRIFICATIONS INTERMÉDIAIRES
+# ====================================================================
+
+### 6.1 Lister les POI en attente (admin uniquement)
+GET {{baseUrl}}/api/moderation/pending?limit=10
+Authorization: Bearer {{adminToken}}
+
+### 6.2 Vérifier les stats de modération
+GET {{baseUrl}}/api/moderation/stats
+Authorization: Bearer {{adminToken}}
+
+### 6.3 Historique de modération du POI (vide pour l'instant)
+GET {{baseUrl}}/api/moderation/history/{{poiId}}
+Authorization: Bearer {{adminToken}}
+
+# ====================================================================
+# ✅ 7. APPROBATION DU POI PAR L'ADMIN
+# ====================================================================
+
+### 7.1 Approuver le POI
+POST {{baseUrl}}/api/moderation/poi/{{poiId}}/approve
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "comments": "POI validé après vérification. L'Hôtel de Ville est bien situé à cette adresse et constitue un point d'intérêt important pour les visiteurs de Yaoundé."
+}
+
+### 7.2 Vérifier le POI après approbation
+GET {{baseUrl}}/api/poi/{{poiId}}
+Authorization: Bearer {{collecteurToken}}
+
+### 7.3 Rechercher le POI dans la liste publique (devrait maintenant apparaître)
+GET {{baseUrl}}/api/poi?q=Maison des secrets
+
+### 7.4 Vérifier l'historique de modération (devrait contenir l'approbation)
+GET {{baseUrl}}/api/moderation/history/{{poiId}}
+Authorization: Bearer {{adminToken}}
+
+# ====================================================================
+# 🎯 8. TESTS SUPPLÉMENTAIRES (OPTIONNELS)
+# ====================================================================
+
+### 8.1 Stats du POI après approbation
+GET {{baseUrl}}/api/poi/{{poiId}}/stats
+
+### 8.2 POI à proximité de l'Hôtel de Ville
+GET {{baseUrl}}/api/poi/nearby?latitude=3.8480&longitude=11.5021&radius=2&limit=10
+
+### 8.3 Créer un autre POI pour test de rejet (optionnel)
+POST {{baseUrl}}/api/poi
+Authorization: Bearer {{collecteurToken}}
+Content-Type: application/json
+
+{
+  "name": "POI Test pour Rejet",
+  "description": "Ce POI sera créé pour tester le processus de rejet.",
+  "adress": "Adresse test, Yaoundé",
+  "latitude": 3.8500,
+  "longitude": 11.5030,
+  "quartier_id": 1,
+  "category_id": 1,
+  "is_restaurant": 0,
+  "is_booking": 0
+}
+
+### 8.4 Rejeter le POI test (remplacez POI_ID_2 par l'ID du POI créé ci-dessus)
+POST {{baseUrl}}/api/moderation/poi/40/reject
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Ce POI ne correspond pas aux critères de qualité requis. Description trop vague et localisation imprécise."
+}
+
+# ====================================================================
+# 🔄 9. TEST DE RÉAPPROBATION (si rejet effectué)
+# ====================================================================
+
+### 9.1 Réapprouver un POI rejeté (si test de rejet effectué)
+POST {{baseUrl}}/api/moderation/poi/40/reapprove
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "comments": "Après révision, ce POI peut être accepté avec les modifications apportées."
+}
+
+# ====================================================================
+# 📊 10. VÉRIFICATIONS FINALES
+# ====================================================================
+
+### 10.1 Stats finales de modération
+GET {{baseUrl}}/api/moderation/stats
+Authorization: Bearer {{adminToken}}
+
+### 10.2 Liste complète des POI approuvés
+GET {{baseUrl}}/api/poi?status=approved&limit=20
+
+### 10.3 Profil final du collecteur
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{collecteurToken}}
+
+### 10.4 Déconnexion collecteur
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{collecteurToken}}
+
+### 10.5 Déconnexion admin
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{adminToken}}
+
+# ====================================================================
+# 📝 RÉSUMÉ DU WORKFLOW TESTÉ
+# ====================================================================
+
+# ✅ ÉTAPES COMPLETÉES :
+# 
+# 1. 🏥 Vérification santé serveur
+# 2. 👑 Connexion administrateur
+# 3. 📝 Inscription collecteur "TestTest"
+# 4. 📧 Vérification email collecteur
+# 5. 🔐 Connexion collecteur
+# 6. 🏗️ Création POI (statut "pending")
+# 7. 🔍 Vérification POI non visible publiquement
+# 8. ✅ Approbation POI par admin
+# 9. 🎯 Vérification POI maintenant visible
+# 10. 📊 Historique et stats de modération
+#
+# 🎉 WORKFLOW COMPLET VALIDÉ !
+#
+# RÉSULTATS ATTENDUS :
+# - POI créé par collecteur → statut "pending"
+# - POI non visible dans recherche publique avant approbation
+# - Notification envoyée aux modérateurs (en mode dev: simulation)
+# - Approbation par admin → statut "approved"
+# - POI maintenant visible publiquement
+# - Historique de modération enregistré
+#
+# 🔧 POUR RÉPÉTER LE TEST :
+# 1. Changez l'email du collecteur
+# 2. Changez le nom du POI
+# 3. Mettez à jour les variables @collecteurToken et @poiId
+# 4. Exécutez dans l'ordre
+
+# ====================================================================
+# 🚨 NOTES IMPORTANTES
+# ====================================================================
+
+# 📌 TOKENS :
+# - Copiez TOUJOURS les tokens depuis les réponses de connexion
+# - Remplacez les variables @adminToken et @collecteurToken
+# - Les tokens expirent après 7 jours
+
+# 📌 VÉRIFICATION EMAIL :
+# - En mode développement, le token est dans dev_verification_token
+# - Copiez ce token dans l'URL de vérification
+# - En production, l'utilisateur clique sur le lien reçu par email
+
+# 📌 IDs DE POI :
+# - Copiez l'ID du POI depuis la réponse de création
+# - Remplacez {{poiId}} par l'ID réel pour les tests suivants
+
+# 📌 STATUTS POI :
+# - "pending" = en attente de modération
+# - "approved" = approuvé et visible publiquement
+# - "rejected" = rejeté par les modérateurs
+
+# 📌 RÔLES ET PERMISSIONS :
+# - "membre" et "collecteur" peuvent créer des POI
+# - "moderateur", "admin", "superadmin" peuvent approuver/rejeter
+# - Auto-approbation pour modérateurs+ lors de création
+
+### Test route quartiers
+GET {{baseUrl}}/api/quartiers
+
+### Test route quartiers avec filtres
+GET {{baseUrl}}/api/quartiers?limit=10
+
+### Test quartier par ID
+GET {{baseUrl}}/api/quartiers/1
+
+### Test route catégories
+GET {{baseUrl}}/api/categories
+
+### Test catégories avec filtres
+GET {{baseUrl}}/api/categories?langue=fr&limit=20
+
+### Test catégorie par ID  
+GET {{baseUrl}}/api/categories/1

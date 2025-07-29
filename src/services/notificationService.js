@@ -1,5 +1,6 @@
 const { Server } = require('socket.io');
 const emailService = require('./emailService');
+const socketService = require('./socketService');
 
 class NotificationService {
   constructor() {
@@ -12,7 +13,7 @@ class NotificationService {
     this.io = new Server(server, {
       cors: {
         origin: process.env.CLIENT_URL || 'http://localhost:3000',
-        methods: ['GET', 'POST']
+        methods: ['GET', 'POST', 'PATCH']
       }
     });
 
@@ -50,16 +51,37 @@ class NotificationService {
       });
     });
 
-    console.log(' Service de notifications initialisé');
+    console.log('🔔 Service de notifications initialisé');
   }
 
   // Notifier l'approbation d'un POI
   async notifyPOIApproval(data) {
-    const { poi, moderator_id, comments } = data;
+    console.log(`📧 Début notification approbation POI ${data.poi.id}`);
 
     try {
-      // Notification temps réel au créateur
+      const { poi, moderator_id, comments } = data;
+
+      // ✅ ÉTAPE 1: Notification temps réel Socket.IO
+      console.log(`🔄 Notification Socket.IO...`);
+      await this.sendSocketNotifications(poi, moderator_id, comments);
+
+      // ✅ ÉTAPE 2: Notification email
+      console.log(`🔄 Notification email...`);
+      await this.sendEmailNotifications(poi, comments);
+
+      console.log(`✅ Toutes les notifications envoyées pour POI ${poi.id}`);
+    } catch (error) {
+      console.error(`❌ Erreur globale notification approbation POI:`, error);
+      throw error; // Remonter l'erreur au contrôleur
+    }
+  }
+
+  // Gestion des notifications Socket.IO
+  async sendSocketNotifications(poi, moderator_id, comments) {
+    try {
+      // Notifier le créateur du POI
       const creatorSocketId = this.connectedUsers.get(poi.created_by);
+
       if (creatorSocketId) {
         this.io.to(creatorSocketId).emit('poi:approved', {
           type: 'poi_approved',
@@ -69,11 +91,9 @@ class NotificationService {
           comments,
           timestamp: new Date().toISOString()
         });
-      }
-
-      // Notification email au créateur
-      if (poi.creator && poi.creator.email) {
-        await this.sendApprovalEmail(poi, comments);
+        console.log(`✅ Notification Socket.IO envoyée au créateur`);
+      } else {
+        console.log(`ℹ️  Créateur POI non connecté (pas d'erreur)`);
       }
 
       // Notifier les autres modérateurs
@@ -85,18 +105,45 @@ class NotificationService {
         moderator_id,
         timestamp: new Date().toISOString()
       });
+      console.log(`✅ Notification Socket.IO envoyée aux modérateurs`);
 
-      console.log(`📧 Notifications envoyées pour approbation POI ${poi.id}`);
-    } catch (error) {
-      console.error('❌ Erreur notification approbation:', error);
+      // Appeler le service socket séparé si nécessaire
+      if (socketService && socketService.notifyPOIApproval) {
+        socketService.notifyPOIApproval({ poi, moderator_id, comments });
+      }
+    } catch (socketError) {
+      console.error(`❌ Erreur Socket.IO (non-bloquante):`, socketError.message);
+      // Ne pas faire échouer pour une erreur Socket.IO
+    }
+  }
+
+  // Gestion des notifications email
+  async sendEmailNotifications(poi, comments) {
+    try {
+      if (poi.creator && poi.creator.email) {
+        console.log(`📧 Envoi email à: ${poi.creator.email}`);
+        await this.sendApprovalEmail(poi, comments);
+        console.log(`✅ Email d'approbation envoyé avec succès`);
+      } else {
+        console.log(`⚠️  Pas d'email créateur - données POI incomplètes`);
+        console.log(`Creator data:`, poi.creator);
+      }
+    } catch (emailError) {
+      console.error(`❌ Erreur envoi email (non-bloquante):`, emailError.message);
+      console.error(`Email error stack:`, emailError.stack);
+
+      // En développement, les erreurs email ne doivent pas faire échouer
+      if (process.env.NODE_ENV !== 'development') {
+        throw emailError; // En production, on veut savoir s'il y a un problème email
+      }
     }
   }
 
   // Notifier le rejet d'un POI
   async notifyPOIRejection(data) {
-    const { poi, moderator_id, reason } = data;
-
     try {
+      const { poi, moderator_id, reason } = data;
+
       // Notification temps réel au créateur
       const creatorSocketId = this.connectedUsers.get(poi.created_by);
       if (creatorSocketId) {
@@ -128,8 +175,10 @@ class NotificationService {
       console.log(`📧 Notifications envoyées pour rejet POI ${poi.id}`);
     } catch (error) {
       console.error('❌ Erreur notification rejet:', error);
+      throw error;
     }
   }
+
   // Notifier la création d'un nouveau POI aux modérateurs
   async notifyPOICreated(poi) {
     try {
@@ -146,14 +195,27 @@ class NotificationService {
       console.log(`📧 Modérateurs notifiés pour nouveau POI ${poi.id}`);
     } catch (error) {
       console.error('❌ Erreur notification création POI:', error);
+      throw error;
     }
   }
 
   // Email d'approbation
   async sendApprovalEmail(poi, comments) {
-    const subject = `✅ Votre POI "${poi.name}" a été approuvé !`;
+    console.log(`📧 Préparation email approbation pour POI ${poi.id}`);
 
-    const html = `
+    try {
+      // Vérification des données requises
+      if (!poi.creator || !poi.creator.email) {
+        throw new Error(`Données créateur manquantes pour POI ${poi.id}`);
+      }
+
+      if (!poi.name || !poi.adress) {
+        throw new Error(`Données POI incomplètes pour l'email (ID: ${poi.id})`);
+      }
+
+      const subject = `✅ Votre POI "${poi.name}" a été approuvé !`;
+
+      const html = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -178,7 +240,7 @@ class NotificationService {
                     <div class="poi-info">
                         <h3>📍 ${poi.name}</h3>
                         <p><strong>Adresse :</strong> ${poi.adress}</p>
-                        <p><strong>Description :</strong> ${poi.description.substring(0, 100)}...</p>
+                        <p><strong>Description :</strong> ${poi.description ? poi.description.substring(0, 100) + '...' : 'Non disponible'}</p>
                         ${comments ? `<p><strong>Commentaires du modérateur :</strong> ${comments}</p>` : ''}
                     </div>
                     
@@ -191,7 +253,16 @@ class NotificationService {
         </body>
         </html>`;
 
-    return await emailService.sendEmail(poi.creator.email, subject, html);
+      console.log(`📧 Envoi email à ${poi.creator.email}...`);
+
+      const result = await emailService.sendEmail(poi.creator.email, subject, html);
+
+      console.log(`✅ Email envoyé avec succès (Message ID: ${result.messageId})`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Erreur détaillée envoi email approbation:`, error);
+      throw new Error(`Erreur envoi email: ${error.message}`);
+    }
   }
 
   // Email de rejet
@@ -243,6 +314,7 @@ class NotificationService {
     return await emailService.sendEmail(poi.creator.email, subject, html);
   }
 
+  // Notifier l'ajout d'un commentaire
   async notifyCommentAdded(comment, poi) {
     try {
       // Notification temps réel au propriétaire du POI
@@ -265,6 +337,7 @@ class NotificationService {
       }
     } catch (error) {
       console.error('❌ Erreur notification commentaire:', error);
+      throw error;
     }
   }
 
@@ -290,6 +363,7 @@ class NotificationService {
       }
     } catch (error) {
       console.error('❌ Erreur notification réponse:', error);
+      throw error;
     }
   }
 
@@ -309,6 +383,7 @@ class NotificationService {
       console.log(`📧 Modérateurs notifiés pour signalement commentaire ${comment.id}`);
     } catch (error) {
       console.error('❌ Erreur notification signalement:', error);
+      throw error;
     }
   }
 
