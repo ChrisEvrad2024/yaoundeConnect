@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
+const usersRouter = require('./routes/users');
+
 require('dotenv').config({ debug: true });
 
 // Import des middlewares personnalisés
@@ -18,6 +20,7 @@ app.use(
       process.env.CLIENT_URL ||
       'http://localhost:3000' ||
       'http://localhost:4201' ||
+      'http://localhost:8080' ||
       'http://localhost:10000',
     credentials: true
   })
@@ -30,6 +33,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/osm', require('./routes/osm'));
 app.use('/api/comments', require('./routes/comments'));
 app.use('/api/ratings', require('./routes/ratings'));
+app.use('/api/users', usersRouter);
 
 // Servir les fichiers statiques
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

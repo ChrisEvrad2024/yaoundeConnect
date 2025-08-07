@@ -1,3 +1,4 @@
+// src/models/User.js (mise à jour avec votre structure)
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -43,6 +44,15 @@ module.exports = (sequelize) => {
       email_verification_expires: {
         type: DataTypes.DATE,
         allowNull: true
+      },
+      created_by: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true,
+        references: {
+          model: 'users',
+          key: 'id'
+        },
+        comment: "ID de l'utilisateur qui a créé cet utilisateur (pour la gestion administrative)"
       }
     },
     {
@@ -54,6 +64,7 @@ module.exports = (sequelize) => {
   );
 
   User.associate = (models) => {
+    // Relations existantes (conservées)
     User.hasMany(models.PointInterest, { foreignKey: 'user_id', as: 'createdPOIs' });
     User.hasMany(models.PointInterest, { foreignKey: 'created_by', as: 'authoredPOIs' });
     User.hasMany(models.PointInterest, { foreignKey: 'approved_by', as: 'approvedPOIs' });
@@ -68,6 +79,42 @@ module.exports = (sequelize) => {
       otherKey: 'poi_id',
       as: 'favoritePOIs'
     });
+
+    // Nouvelles relations pour la gestion des utilisateurs
+    User.belongsTo(User, {
+      foreignKey: 'created_by',
+      as: 'createdBy',
+      allowNull: true
+    });
+
+    User.hasMany(User, {
+      foreignKey: 'created_by',
+      as: 'createdUsers'
+    });
+  };
+
+  // Méthodes d'instance
+  User.prototype.toPublicJSON = function () {
+    const user = this.toJSON();
+    delete user.password;
+    delete user.email_verification_token;
+    return user;
+  };
+
+  // Méthodes de classe pour la gestion des utilisateurs
+  User.getRoleHierarchy = function () {
+    return {
+      superadmin: 4,
+      admin: 3,
+      moderateur: 2,
+      collecteur: 1,
+      membre: 0
+    };
+  };
+
+  User.canManageRole = function (managerRole, targetRole) {
+    const hierarchy = this.getRoleHierarchy();
+    return hierarchy[managerRole] > hierarchy[targetRole];
   };
 
   return User;

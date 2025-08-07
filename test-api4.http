@@ -1,0 +1,697 @@
+# ====================================================================
+# 🧪 TEST COMPLET: SYSTÈME DE GESTION DES UTILISATEURS
+# ====================================================================
+# Test du système hiérarchique de gestion des utilisateurs
+# SuperAdmin → Admin → Modérateur → Collecteur → Membre
+# Utilisez avec VS Code REST Client extension ou Postman
+
+# Variables globales
+@baseUrl = http://localhost:9999
+
+# Données des utilisateurs de test existants
+@superAdminEmail = chrisomgba04@gmail.com
+@superAdminPassword = passWord123!
+
+# Tokens à mettre à jour après chaque connexion
+@superAdminToken =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MzcsImVtYWlsIjoiY2hyaXNvbWdiYTA0QGdtYWlsLmNvbSIsInJvbGUiOiJzdXBlcmFkbWluIiwiaWF0IjoxNzU0NTk5MDY4LCJleHAiOjE3NTUyMDM4Njh9.ljlJWuutJrc2Hha7xYxQEh3MlinPGuWN-h-NaokWMck
+@adminToken = 
+@moderateurToken = 
+@collecteurToken = 
+@membreToken = 
+
+# IDs des utilisateurs créés (à mettre à jour)
+@adminId = 
+@moderateurId = 
+@collecteurId = 
+@membreId = 
+
+# ====================================================================
+# 🏥 1. VÉRIFICATIONS INITIALES
+# ====================================================================
+
+### 1.1 Test de connectivité
+GET {{baseUrl}}/health
+
+### 1.2 Test route racine
+GET {{baseUrl}}/
+
+### 1.3 Vérifier que l'API fonctionne
+GET {{baseUrl}}/api/auth/me
+# Cette requête doit échouer sans token (normal)
+
+# ====================================================================
+# 👑 2. CONNEXION SUPER ADMINISTRATEUR
+# ====================================================================
+
+### 2.1 Connexion Super Admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{superAdminEmail}}",
+  "password": "{{superAdminPassword}}"
+}
+
+# 📝 COPIEZ LE TOKEN DE LA RÉPONSE CI-DESSUS DANS @superAdminToken
+
+### 2.2 Vérifier le profil super admin
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{superAdminToken}}
+
+### 2.3 Vérifier les rôles gérables par le super admin
+GET {{baseUrl}}/api/users/roles
+Authorization: Bearer {{superAdminToken}}
+
+### 2.4 Statistiques de gestion du super admin
+GET {{baseUrl}}/api/users/stats
+Authorization: Bearer {{superAdminToken}}
+
+# ====================================================================
+# 🎯 3. CRÉATION DE LA HIÉRARCHIE D'UTILISATEURS
+# ====================================================================
+
+### 3.1 Super Admin crée un Admin
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "name": "Admin Test",
+  "email": "admin.test@yaoundeconnect.com",
+  "password": "AdminTest123!",
+  "role": "admin"
+}
+
+# 📝 COPIEZ L'ID DE L'ADMIN DE LA RÉPONSE CI-DESSUS DANS @adminId
+
+### 3.2 Connexion du nouvel Admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin.test@yaoundeconnect.com",
+  "password": "AdminTest123!"
+}
+
+# 📝 COPIEZ LE TOKEN DE LA RÉPONSE CI-DESSUS DANS @adminToken
+
+### 3.3 Admin crée un Modérateur
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "name": "Modérateur Test",
+  "email": "moderateur.test@yaoundeconnect.com",
+  "password": "ModTest123!",
+  "role": "moderateur"
+}
+
+# 📝 COPIEZ L'ID DU MODÉRATEUR DE LA RÉPONSE CI-DESSUS DANS @moderateurId
+
+### 3.4 Connexion du Modérateur
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "moderateur.test@yaoundeconnect.com",
+  "password": "ModTest123!"
+}
+
+# 📝 COPIEZ LE TOKEN DE LA RÉPONSE CI-DESSUS DANS @moderateurToken
+
+### 3.5 Modérateur crée un Collecteur
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{moderateurToken}}
+Content-Type: application/json
+
+{
+  "name": "Collecteur Test",
+  "email": "collecteur.test@yaoundeconnect.com",
+  "password": "CollTest123!",
+  "role": "collecteur"
+}
+
+# 📝 COPIEZ L'ID DU COLLECTEUR DE LA RÉPONSE CI-DESSUS DANS @collecteurId
+
+### 3.6 Connexion du Collecteur
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "collecteur.test@yaoundeconnect.com",
+  "password": "CollTest123!"
+}
+
+# 📝 COPIEZ LE TOKEN DE LA RÉPONSE CI-DESSUS DANS @collecteurToken
+
+### 3.7 Admin crée un Membre (tous peuvent créer des membres)
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Membre Test",
+  "email": "membre.test@yaoundeconnect.com",
+  "password": "MembreTest123!",
+  "role": "membre"
+}
+
+# 📝 COPIEZ L'ID DU MEMBRE DE LA RÉPONSE CI-DESSUS DANS @membreId
+
+### 3.8 Connexion du Membre
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "membre.test@yaoundeconnect.com",
+  "password": "MembreTest123!"
+}
+
+# 📝 COPIEZ LE TOKEN DE LA RÉPONSE CI-DESSUS DANS @membreToken
+
+# ====================================================================
+# 🔍 4. TESTS DE PERMISSIONS ET HIÉRARCHIE
+# ====================================================================
+
+### 4.1 Super Admin voit tous les utilisateurs
+GET {{baseUrl}}/api/users?limit=50
+Authorization: Bearer {{superAdminToken}}
+
+### 4.2 Admin voit seulement modérateurs et collecteurs
+GET {{baseUrl}}/api/users?limit=50
+Authorization: Bearer {{adminToken}}
+
+### 4.3 Modérateur voit seulement les collecteurs
+GET {{baseUrl}}/api/users?limit=50
+Authorization: Bearer {{moderateurToken}}
+
+### 4.4 Collecteur ne peut pas gérer d'utilisateurs (doit échouer)
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{collecteurToken}}
+
+### 4.5 Membre ne peut pas gérer d'utilisateurs (doit échouer)
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{membreToken}}
+
+# ====================================================================
+# ❌ 5. TESTS DE RESTRICTIONS (DOIVENT ÉCHOUER)
+# ====================================================================
+
+### 5.1 Admin ne peut PAS créer un autre admin (doit échouer)
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Admin Interdit",
+  "email": "admin.interdit@test.com",
+  "password": "AdminInt123!",
+  "role": "admin"
+}
+
+### 5.2 Modérateur ne peut PAS créer un admin (doit échouer)
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{moderateurToken}}
+Content-Type: application/json
+
+{
+  "name": "Admin Interdit 2",
+  "email": "admin.interdit2@test.com",
+  "password": "AdminInt123!",
+  "role": "admin"
+}
+
+### 5.3 Collecteur ne peut PAS créer d'utilisateurs (doit échouer)
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{collecteurToken}}
+Content-Type: application/json
+
+{
+  "name": "Utilisateur Interdit",
+  "email": "user.interdit@test.com",
+  "password": "UserInt123!",
+  "role": "membre"
+}
+
+### 5.4 Modérateur ne peut PAS modifier un admin (doit échouer)
+PUT {{baseUrl}}/api/users/{{adminId}}
+Authorization: Bearer {{moderateurToken}}
+Content-Type: application/json
+
+{
+  "name": "Tentative Interdite"
+}
+
+### 5.5 Auto-gestion interdite - Admin ne peut pas se modifier (doit échouer)
+PUT {{baseUrl}}/api/users/{{adminId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Auto Modification"
+}
+
+# ====================================================================
+# ✅ 6. TESTS DE MODIFICATIONS AUTORISÉES
+# ====================================================================
+
+### 6.1 Super Admin modifie l'Admin
+PUT {{baseUrl}}/api/users/{{adminId}}
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "name": "Admin Test Modifié",
+  "is_email_verified": true
+}
+
+### 6.2 Admin modifie le Modérateur
+PUT {{baseUrl}}/api/users/{{moderateurId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Modérateur Test Modifié"
+}
+
+### 6.3 Modérateur modifie le Collecteur
+PUT {{baseUrl}}/api/users/{{collecteurId}}
+Authorization: Bearer {{moderateurToken}}
+Content-Type: application/json
+
+{
+  "name": "Collecteur Test Modifié",
+  "email": "collecteur.modifie@yaoundeconnect.com"
+}
+
+### 6.4 Changement de rôle autorisé - Admin promote Collecteur en Modérateur
+PUT {{baseUrl}}/api/users/{{collecteurId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "role": "moderateur"
+}
+
+### 6.5 Vérifier la modification du rôle
+GET {{baseUrl}}/api/users/{{collecteurId}}
+Authorization: Bearer {{adminToken}}
+
+# ====================================================================
+# 🔑 7. TESTS DE RÉINITIALISATION DE MOT DE PASSE
+# ====================================================================
+
+### 7.1 Admin reset le password du Modérateur
+POST {{baseUrl}}/api/users/{{moderateurId}}/reset-password
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "new_password": "NouveauModPass123!"
+}
+
+### 7.2 Super Admin reset le password de l'Admin
+POST {{baseUrl}}/api/users/{{adminId}}/reset-password
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "new_password": "NouvelAdminPass123!"
+}
+
+### 7.3 Collecteur ne peut PAS reset de password (doit échouer)
+POST {{baseUrl}}/api/users/{{membreId}}/reset-password
+Authorization: Bearer {{collecteurToken}}
+Content-Type: application/json
+
+{
+  "new_password": "TentativeInt123!"
+}
+
+### 7.4 Test connexion avec nouveau password
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin.test@yaoundeconnect.com",
+  "password": "NouvelAdminPass123!"
+}
+
+# ====================================================================
+# 📊 8. TESTS DE CONSULTATION ET STATISTIQUES
+# ====================================================================
+
+### 8.1 Statistiques détaillées par rôle
+GET {{baseUrl}}/api/users/stats
+Authorization: Bearer {{superAdminToken}}
+
+### 8.2 Statistiques Admin (ne voit que ses utilisateurs gérables)
+GET {{baseUrl}}/api/users/stats
+Authorization: Bearer {{adminToken}}
+
+### 8.3 Filtrage par rôle - Admin recherche ses modérateurs
+GET {{baseUrl}}/api/users?role=moderateur
+Authorization: Bearer {{adminToken}}
+
+### 8.4 Recherche par nom/email
+GET {{baseUrl}}/api/users?search=Test
+Authorization: Bearer {{superAdminToken}}
+
+### 8.5 Pagination et tri
+GET {{baseUrl}}/api/users?page=1&limit=3&sort_by=created_at&sort_order=desc
+Authorization: Bearer {{superAdminToken}}
+
+### 8.6 Obtenir un utilisateur spécifique
+GET {{baseUrl}}/api/users/{{moderateurId}}
+Authorization: Bearer {{adminToken}}
+
+# ====================================================================
+# 📜 9. TESTS D'HISTORIQUE ET AUDIT
+# ====================================================================
+
+### 9.1 Historique complet de l'Admin
+GET {{baseUrl}}/api/users/{{adminId}}/history
+Authorization: Bearer {{superAdminToken}}
+
+### 9.2 Historique du Modérateur
+GET {{baseUrl}}/api/users/{{moderateurId}}/history
+Authorization: Bearer {{adminToken}}
+
+### 9.3 Historique du Collecteur
+GET {{baseUrl}}/api/users/{{collecteurId}}/history
+Authorization: Bearer {{moderateurToken}}
+
+### 9.4 Collecteur ne peut PAS voir l'historique (doit échouer)
+GET {{baseUrl}}/api/users/{{moderateurId}}/history
+Authorization: Bearer {{collecteurToken}}
+
+# ====================================================================
+# 🗑️ 10. TESTS DE SUPPRESSION
+# ====================================================================
+
+### 10.1 Créer un utilisateur temporaire pour test de suppression
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{moderateurToken}}
+Content-Type: application/json
+
+{
+  "name": "Utilisateur Temporaire",
+  "email": "temp.user@test.com",
+  "password": "TempUser123!",
+  "role": "collecteur"
+}
+
+# 📝 COPIEZ L'ID DE L'UTILISATEUR TEMPORAIRE
+@tempUserId = 
+
+### 10.2 Modérateur supprime le collecteur temporaire
+DELETE {{baseUrl}}/api/users/{{tempUserId}}
+Authorization: Bearer {{moderateurToken}}
+
+### 10.3 Vérifier que l'utilisateur est supprimé (doit retourner 404)
+GET {{baseUrl}}/api/users/{{tempUserId}}
+Authorization: Bearer {{moderateurToken}}
+
+### 10.4 Collecteur ne peut PAS supprimer (doit échouer)
+DELETE {{baseUrl}}/api/users/{{membreId}}
+Authorization: Bearer {{collecteurToken}}
+
+# ====================================================================
+# 🔒 11. TESTS DE SÉCURITÉ ET VALIDATION
+# ====================================================================
+
+### 11.1 Création avec mot de passe faible (doit échouer)
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Weak Password",
+  "email": "weak.password@test.com",
+  "password": "123",
+  "role": "collecteur"
+}
+
+### 11.2 Création avec email invalide (doit échouer)
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Invalid Email",
+  "email": "email_invalide",
+  "password": "ValidPass123!",
+  "role": "collecteur"
+}
+
+### 11.3 Création avec email existant (doit échouer)
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Duplicate Email",
+  "email": "admin.test@yaoundeconnect.com",
+  "password": "ValidPass123!",
+  "role": "collecteur"
+}
+
+### 11.4 Modification sans données (doit échouer)
+PUT {{baseUrl}}/api/users/{{moderateurId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{}
+
+### 11.5 Token invalide (doit échouer)
+GET {{baseUrl}}/api/users
+Authorization: Bearer invalid_token
+
+### 11.6 Sans token (doit échouer)
+GET {{baseUrl}}/api/users
+
+# ====================================================================
+# 🛠️ 12. TESTS DE DÉVELOPPEMENT (si NODE_ENV=development)
+# ====================================================================
+
+### 12.1 Documentation des permissions (dev uniquement)
+GET {{baseUrl}}/api/users/dev/permissions
+Authorization: Bearer {{adminToken}}
+
+### 12.2 Documentation des permissions - Super Admin
+GET {{baseUrl}}/api/users/dev/permissions
+Authorization: Bearer {{superAdminToken}}
+
+### 12.3 Documentation des permissions - Modérateur
+GET {{baseUrl}}/api/users/dev/permissions
+Authorization: Bearer {{moderateurToken}}
+
+# ====================================================================
+# 🔄 13. TESTS DE WORKFLOW COMPLETS
+# ====================================================================
+
+### 13.1 Workflow: Super Admin crée une équipe complète
+# Créer Admin
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "name": "Admin Équipe Alpha",
+  "email": "admin.alpha@yaoundeconnect.com",
+  "password": "AdminAlpha123!",
+  "role": "admin"
+}
+
+### 13.2 Connexion du nouvel Admin Équipe
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin.alpha@yaoundeconnect.com",
+  "password": "AdminAlpha123!"
+}
+
+# Copiez le token pour @adminAlphaToken
+@adminAlphaToken = 
+
+### 13.3 Admin Équipe crée ses modérateurs
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{adminAlphaToken}}
+Content-Type: application/json
+
+{
+  "name": "Modérateur Alpha 1",
+  "email": "mod.alpha1@yaoundeconnect.com",
+  "password": "ModAlpha123!",
+  "role": "moderateur"
+}
+
+### 13.4 Statistiques après création d'équipe
+GET {{baseUrl}}/api/users/stats
+Authorization: Bearer {{adminAlphaToken}}
+
+### 13.5 Liste des utilisateurs de l'équipe
+GET {{baseUrl}}/api/users?sort_by=created_at&sort_order=desc
+Authorization: Bearer {{adminAlphaToken}}
+
+# ====================================================================
+# 🧹 14. NETTOYAGE ET VÉRIFICATIONS FINALES
+# ====================================================================
+
+### 14.1 Statistiques finales Super Admin
+GET {{baseUrl}}/api/users/stats
+Authorization: Bearer {{superAdminToken}}
+
+### 14.2 Liste complète finale (Super Admin)
+GET {{baseUrl}}/api/users?limit=100&sort_by=created_at
+Authorization: Bearer {{superAdminToken}}
+
+### 14.3 Vérifier les rôles finaux
+GET {{baseUrl}}/api/users/roles
+Authorization: Bearer {{superAdminToken}}
+
+### 14.4 Test final de permissions
+GET {{baseUrl}}/api/users/roles
+Authorization: Bearer {{moderateurToken}}
+
+### 14.5 Déconnexions finales
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{superAdminToken}}
+
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{adminToken}}
+
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{moderateurToken}}
+
+# ====================================================================
+# 📝 RÉSUMÉ DU SYSTÈME TESTÉ
+# ====================================================================
+
+# ✅ FONCTIONNALITÉS TESTÉES :
+# 
+# 🏗️ HIÉRARCHIE DES RÔLES :
+# - SuperAdmin (niveau 4) → gère Admin, Modérateur, Collecteur, Membre
+# - Admin (niveau 3) → gère Modérateur, Collecteur
+# - Modérateur (niveau 2) → gère Collecteur
+# - Collecteur (niveau 1) → aucune gestion
+# - Membre (niveau 0) → aucune gestion
+#
+# 🔐 SÉCURITÉ :
+# - Authentication obligatoire
+# - Permissions hiérarchiques strictes
+# - Auto-gestion interdite
+# - Validation des mots de passe
+# - Validation des emails
+#
+# 📊 GESTION :
+# - Création d'utilisateurs selon permissions
+# - Modification d'utilisateurs
+# - Suppression (modérateur+ uniquement)
+# - Réinitialisation mots de passe (modérateur+ uniquement)
+# - Consultation et filtrage
+# - Statistiques par rôle
+#
+# 📜 AUDIT :
+# - Historique complet des modifications
+# - Traçabilité de qui a fait quoi
+# - Logs d'audit dans la base de données
+# - Journalisation des actions critiques
+#
+# 🎯 ENDPOINTS TESTÉS :
+# - GET /api/users (liste avec filtres)
+# - GET /api/users/:id (utilisateur spécifique)
+# - POST /api/users (création)
+# - PUT /api/users/:id (modification)
+# - DELETE /api/users/:id (suppression)
+# - POST /api/users/:id/reset-password (reset password)
+# - GET /api/users/:id/history (historique)
+# - GET /api/users/stats (statistiques)
+# - GET /api/users/roles (rôles gérables)
+#
+# 🎉 SYSTÈME DE GESTION UTILISATEURS VALIDÉ !
+
+# ====================================================================
+# 🚨 NOTES IMPORTANTES
+# ====================================================================
+
+# 📌 TOKENS :
+# - Copiez TOUJOURS les tokens depuis les réponses de connexion
+# - Remplacez les variables @xxxToken avec les vrais tokens
+# - Les tokens expirent après 7 jours
+
+# 📌 HIÉRARCHIE STRICTE :
+# - Chaque niveau ne peut gérer que les niveaux inférieurs
+# - Aucun utilisateur ne peut se gérer lui-même
+# - SuperAdmin a tous les droits
+
+# 📌 ACTIONS CRITIQUES :
+# - Suppression : modérateur+ uniquement
+# - Reset password : modérateur+ uniquement
+# - Changement de rôle : selon hiérarchie
+
+# 📌 VALIDATION :
+# - Mots de passe : min 8 chars, majuscule, minuscule, chiffre, spécial
+# - Emails : format valide et unique
+# - Noms : 2-100 caractères
+
+# 📌 AUDIT COMPLET :
+# - Toutes les actions sont tracées
+# - Historique disponible pour chaque utilisateur
+# - Qui a créé/modifié/supprimé est enregistré
+
+# 📌 ERREURS COMMUNES :
+# - 401 : Token manquant/invalide
+# - 403 : Permissions insuffisantes
+# - 400 : Auto-gestion interdite
+# - 409 : Email déjà existant
+# - 404 : Utilisateur non trouvé
+
+# 📌 POUR RÉPÉTER LE TEST :
+# 1. Changez les emails des utilisateurs de test
+# 2. Mettez à jour toutes les variables de tokens et IDs
+# 3. Exécutez dans l'ordre séquentiel
+# 4. Vérifiez les logs serveur pour le debug
+
+# ====================================================================
+# 🔧 CONFIGURATION REQUISE
+# ====================================================================
+
+# Base de données :
+# - Table users avec colonne created_by
+# - Table audit_logs fonctionnelle
+# - Relations correctement définies
+
+# Variables d'environnement :
+# - NODE_ENV=development (pour routes de debug)
+# - JWT_SECRET configuré
+# - Base de données connectée
+
+# Dépendances :
+# - bcryptjs pour hachage passwords
+# - jsonwebtoken pour tokens
+# - joi pour validation
+# - sequelize pour ORM
+
+# ====================================================================
+# 🎯 RÉSULTATS ATTENDUS
+# ====================================================================
+
+# 🟢 SUCCÈS ATTENDUS :
+# - SuperAdmin peut tout gérer
+# - Admin gère modérateurs et collecteurs uniquement
+# - Modérateur gère collecteurs uniquement
+# - Collecteur et Membre ne peuvent rien gérer
+# - Audit trail complet et fonctionnel
+# - Sécurité et validations strictes
+
+# 🔴 ÉCHECS ATTENDUS :
+# - Tentatives de gestion hors hiérarchie
+# - Auto-gestion via routes de gestion
+# - Création avec données invalides
+# - Actions sans permissions suffisantes
+# - Tokens invalides ou expirés
+
+# 🚀 PRÊT POUR LA PRODUCTION !
